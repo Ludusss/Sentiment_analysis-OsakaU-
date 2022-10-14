@@ -41,8 +41,12 @@ def get_iemocap_data(classes):
 
     max_len = max(max(train_seq_len), max(test_seq_len))
     #print('max_len', max_len)
+    t = 0
     for vid in trainVid:
         train_label.append(videoLabels[vid] + [0] * (max_len - len(videoIDs[vid])))
+        if t == 0:
+            print(np.array(train_label))
+            t += 1
 
         pad = [np.zeros(videoText[vid][0].shape)] * (max_len - len(videoIDs[vid]))
         text = np.stack(videoText[vid] + pad, axis=0)
@@ -74,7 +78,7 @@ def get_iemocap_data(classes):
     #print(len(train_text))
     #print(len(train_audio))
     #print(len(train_visual))
-
+    
     train_text = np.stack(train_text, axis=0)
     train_audio = np.stack(train_audio, axis=0)
     train_visual = np.stack(train_visual, axis=0)
