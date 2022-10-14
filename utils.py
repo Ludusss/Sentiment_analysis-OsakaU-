@@ -1,6 +1,27 @@
 import numpy as np
 import pickle
-import sys
+import torch
+
+
+def get_accuracy(output, target, mask):
+    pred = output.argmax(dim=1, keepdim=True)
+    correct = 0
+    total = 0
+    for i in range(len(mask)):
+        if (mask[i] == 1):
+            total += 1
+            if (pred[i] == target[i]):
+                correct += 1
+    return 100.0 * correct / total
+
+
+def gen_bashes(features, labels, mask, batch_size, shuffle=True):
+    permutation = torch.randperm(len(features))
+
+    for i in range(0, len(features), batch_size):
+        indices = permutation[i:i+batch_size]
+        yield zip(features[indices], labels[indices], mask[indices])
+
 
 def get_iemocap_data(classes):
     f = open("data/IEMOCAP_features_raw.pkl", "rb")
@@ -41,12 +62,8 @@ def get_iemocap_data(classes):
 
     max_len = max(max(train_seq_len), max(test_seq_len))
     #print('max_len', max_len)
-    t = 0
     for vid in trainVid:
         train_label.append(videoLabels[vid] + [0] * (max_len - len(videoIDs[vid])))
-        if t == 0:
-            print(np.array(train_label))
-            t += 1
 
         pad = [np.zeros(videoText[vid][0].shape)] * (max_len - len(videoIDs[vid]))
         text = np.stack(videoText[vid] + pad, axis=0)
