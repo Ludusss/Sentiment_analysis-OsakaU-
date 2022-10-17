@@ -1,6 +1,7 @@
 import numpy as np
 import pickle
 import torch
+import sys
 
 
 def get_accuracy(output, target, mask):
@@ -25,9 +26,12 @@ def gen_bashes(features, labels, mask, batch_size, shuffle=True):
 
 def get_iemocap_data(classes):
     f = open("data/IEMOCAP_features_raw.pkl", "rb")
-    u = pickle._Unpickler(f)
-    u.encoding = 'latin1'
-    videoIDs, videoSpeakers, videoLabels, videoText, videoAudio, videoVisual, videoSentence, trainVid, testVid = u.load()
+    if sys.version_info[0] == 2:
+        videoIDs, videoSpeakers, videoLabels, videoText, videoAudio, videoVisual, videoSentence, trainVid, testVid = pickle.load(f)
+    else:
+        u = pickle._Unpickler(f)
+        u.encoding = 'latin1'
+        videoIDs, videoSpeakers, videoLabels, videoText, videoAudio, videoVisual, videoSentence, trainVid, testVid = u.load()
     '''
     label index mapping = {'hap':0, 'sad':1, 'neu':2, 'ang':3, 'exc':4, 'fru':5}
     '''
