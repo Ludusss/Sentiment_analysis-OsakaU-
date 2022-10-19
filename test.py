@@ -5,6 +5,7 @@ from utils import *
 from model import LSTM
 import torch.utils.data
 import numpy as np
+from sklearn import metrics
 
 def main():
     parser = argparse.ArgumentParser(description='IEMOCAP Sentiment Analysis')
@@ -21,8 +22,8 @@ def main():
                         help='number of hidden layers (default: 1)')
     parser.add_argument('--batch_size', type=int, default=10,
                         help='batch size (default: 10)')
-    parser.add_argument('--save_model_threshold', type=float, default=0.66,
-                        help='treshold for saving model (default: 0.66)')
+    parser.add_argument('--save_model_threshold', type=float, default=67.34,
+                        help='threshold for saving model (default: 67.34)')
     parser.add_argument('--use_pretrained', type=bool, default=False,
                         help='Use pretrained model (default: False)')
 
@@ -31,7 +32,7 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
     # Load Dataset
-    data_train, data_test, audio_train, audio_test, text_train, text_test, video_train, video_test, train_label, test_label, seqlen_train, seqlen_test, train_mask, test_mask = get_iemocap_data(4)
+    data_train, data_test, audio_train, audio_test, text_train, text_test, video_train, video_test, train_label, test_label, seqlen_train, seqlen_test, train_mask, test_mask = get_iemocap_data()
 
     # Define model - using concatenated multimodal features (video, audio, transcript)
     model = LSTM(input_feature_size=data_train.shape[-1], hidden_size=args.hidden_size, n_classes=args.n_classes, n_layers=args.n_layers, device=device)
@@ -85,11 +86,34 @@ def main():
                 best_acc = acc_test
                 best_epoch = epoch
                 if best_acc > args.save_model_threshold:
-                    torch.save(model.state_dict(), "saved_model/" + "model_state_dict_acc_" + "{:0.2f}.pt".format(best_acc))
-                    torch.save(optimizer.state_dict(), "saved_model/" + "optimizer_state_dict_acc_" + "{:0.2f}.pt".format(best_acc))
+                    torch.save({
+                                'best_epoch': best_epoch,
+                                'model_state_dict': model.state_dict(),
+                                'optimizer_state_dict': optimizer.state_dict()
+                                },
+                               "saved_models/" + "model_acc_" + "{:0.2f}".format(best_acc))
 
-    print('Best Epoch: {}/{}.............'.format(best_epoch, args.n_epochs), end=' ')
-    print("Train accuracy:{:.2f}% Test accuracy: {:.2f}%".format(train_acc, best_acc))
+
+        print('Best Epoch: {}/{}.............'.format(best_epoch, args.n_epochs), end=' ')
+        print("Train accuracy:{:.2f}% Test accuracy: {:.2f}%".format(train_acc, best_acc))
+
+    else:
+        model_info = torch.load("saved_models/model_acc_67.47")
+        model.load_state_dict(model_info['model_state_dict'])
+        model.eval()
+        with torch.no_grad():
+            output_test = model(input_test).to(device)
+            acc_test = get_accuracy(output_test, target_test, test_mask)
+
+            print("Accuracy of model loaded: {:.2f}%".format(acc_test))
+
+
+
+
+
+
+
+
 
 
 if __name__ == '__main__':
