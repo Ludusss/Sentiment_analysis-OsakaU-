@@ -6,7 +6,6 @@ import re
 from sentence_transformers import SentenceTransformer
 import numpy as np
 
-
 def get_text_features(file_paths, dialog_utterance_ids):
     print("Extracting text-features...")
     model = SentenceTransformer('all-mpnet-base-v2')    # Load s-bert model for text feature extractions

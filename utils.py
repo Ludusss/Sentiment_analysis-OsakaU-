@@ -140,6 +140,3 @@ def get_iemocap_data():
     test_mask = test_mask.reshape(3410)
 
     return train_data, test_data, train_audio, test_audio, train_text, test_text, train_visual, test_visual, train_label, test_label, train_seq_len, test_seq_len, train_mask, test_mask
-
-
-get_iemocap_data()
