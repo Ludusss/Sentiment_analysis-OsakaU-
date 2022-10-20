@@ -71,16 +71,17 @@ def main():
 
                 # Calculate the unweighted accuracy of train data
                 b_train_mask = np.asarray(b_train_mask).reshape(-1)
-                train_acc = get_accuracy(output, target_train, b_train_mask)
+                train_acc, f1_train, _, _ = report_acc(output, target_train, b_train_mask)
 
                 if (idx + 1) % args.batch_size == 0:
-                    print(f'Epoch [{epoch + 1}/{args.n_epochs}], Loss: {loss.item():.4f}, Accuracy (test): {get_accuracy(model(input_test), target_test, test_mask)}')
+                    print(f'Epoch [{epoch + 1}/{args.n_epochs}], Loss: {loss.item():.4f}', end=" ")
 
             # Evaluation after each epoch on test set
             model.eval()
             with torch.no_grad():
                 output_test = model(input_test).to(device)
-                acc_test = get_accuracy(output_test, target_test, test_mask)
+                acc_test, f1_test, conf_matrix, classify_report = report_acc(output_test, target_test, test_mask)
+                print(f"Accuracy (test): {acc_test}")
 
             if acc_test > best_acc:
                 best_acc = acc_test
@@ -94,8 +95,10 @@ def main():
                                "saved_models/" + "model_acc_" + "{:0.2f}".format(best_acc))
 
 
-        print('Best Epoch: {}/{}.............'.format(best_epoch, args.n_epochs), end=' ')
-        print("Train accuracy:{:.2f}% Test accuracy: {:.2f}%".format(train_acc, best_acc))
+        print('Best Epoch: {}/{}.............'.format(best_epoch, args.n_epochs), end=" ")
+        print("Train accuracy: {:.2f}% Test accuracy: {:.2f}%".format(train_acc, best_acc))
+        print(classify_report)
+
 
     else:
         model_info = torch.load("saved_models/model_acc_67.47")
@@ -103,9 +106,10 @@ def main():
         model.eval()
         with torch.no_grad():
             output_test = model(input_test).to(device)
-            acc_test = get_accuracy(output_test, target_test, test_mask)
+            acc_test, f1_test, conf_matrix, classify_report = report_acc(output_test, target_test, test_mask)
 
             print("Accuracy of model loaded: {:.2f}%".format(acc_test))
+            print(classify_report)
 
 
 
