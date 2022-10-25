@@ -43,8 +43,8 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     bert = SentenceTransformer('all-mpnet-base-v2')    # Load s-bert model for text feature extractions
-    model = LSTM(712, 128, 4, 1, device)
-    model.load_state_dict(torch.load("saved_models/model_acc_67.47")["model_state_dict"])
+    model = LSTM(768, 300, 4, 200, 2, device)
+    model.load_state_dict(torch.load("saved_models/model_acc_64.91.t")["model_state_dict"])
     """os.chdir("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/luo")
     model = hir_fullModel(batch_size=args.batch_size, mode=args.bl, classifier=args.classifier,
                           output_size=args.output_size, hidden_dim=args.hidden_dim,
@@ -54,10 +54,10 @@ def main():
 
     while True:
         sentence = input("Write text to be analyzed: ")
-        sentence_embedding = np.asarray(random.sample(list(bert.encode(sentence, batch_size=1)), 712))
-        text_input = torch.Tensor(sentence_embedding.reshape(1, 1, 712)).to(device)
+        sentence_embedding = np.asarray(list(bert.encode(sentence, batch_size=1)))
+        text_input = torch.Tensor(sentence_embedding.reshape(1, 1, 768)).to(device)
         output = model(text_input)
-        output_label= torch.argmax(output)
+        output_label = torch.argmax(output)
         print(get_sentiment(output_label.item()))
         if sentence == "stop":
             return

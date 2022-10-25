@@ -1,11 +1,13 @@
 import argparse
 import torch
 from torch import nn
+from torch.optim.lr_scheduler import StepLR
+
 from utils import *
-from model import LSTM
+from model import LSTM, LSTM1
 import torch.utils.data
 import numpy as np
-from sklearn import metrics
+
 
 def main():
     parser = argparse.ArgumentParser(description='IEMOCAP Sentiment Analysis')
@@ -14,32 +16,48 @@ def main():
                         help='initial learning rate (default: 0.001)')
     parser.add_argument('--n_classes', type=int, default=4,
                         help='number of classes in the network (default: 4)')
-    parser.add_argument('--n_epochs', type=int, default=100,
+    parser.add_argument('--n_epochs', type=int, default=35,
                         help='number of epochs (default: 100)')
-    parser.add_argument('--hidden_size', type=int, default=128,
+    parser.add_argument('--hidden_size', type=int, default=300,
                         help='dimension of hidden layer in LSTM (default: 128)')
-    parser.add_argument('--n_layers', type=int, default=1,
+    parser.add_argument('--n_layers', type=int, default=2,
                         help='number of hidden layers (default: 1)')
     parser.add_argument('--batch_size', type=int, default=10,
                         help='batch size (default: 10)')
-    parser.add_argument('--save_model_threshold', type=float, default=67.34,
-                        help='threshold for saving model (default: 67.34)')
+    parser.add_argument('--save_model_threshold', type=float, default=60,
+                        help='threshold for saving model (default: 69)')
     parser.add_argument('--use_pretrained', type=bool, default=False,
                         help='Use pretrained model (default: False)')
+    parser.add_argument('--fc_dim', type=int, default=200,
+                        help='dimension of fc layer in LSTM (default: 200)')
+    parser.add_argument(
+        "--modalities",
+        type=str,
+        default="t",
+        choices=["a", "t", "v", "at", "tv", "av", "atv"],
+        help="Modalities",
+    )
+    parser.add_argument('--lr_decay', type=float, default=0.999,
+                        help='Learning rate decay rate (default: 0.99)')
 
     args = parser.parse_args()
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
     # Load Dataset
-    data_train, data_test, audio_train, audio_test, text_train, text_test, video_train, video_test, train_label, test_label, seqlen_train, seqlen_test, train_mask, test_mask = get_iemocap_data()
+    data_train, data_test, train_text, test_text, train_label, test_label, train_seq_len, test_seq_len, train_mask, test_mask = get_extracted_data()
+    #data_train1, data_test1, audio_train, audio_test, text_train1, text_test1, video_train, video_test, train_label1, test_label1, seqlen_train1, seqlen_test1, train_mask1, test_mask1 = get_iemocap_data()
 
     # Define model - using concatenated multimodal features (video, audio, transcript)
-    model = LSTM(input_feature_size=data_train.shape[-1], hidden_size=args.hidden_size, n_classes=args.n_classes, n_layers=args.n_layers, device=device)
+    model = LSTM(input_feature_size=data_train.shape[-1], hidden_size=args.hidden_size, n_classes=args.n_classes,
+                 n_layers=args.n_layers, device=device, fc_dim=args.fc_dim)
+    """model = LSTM1(input_feature_size=data_train.shape[-1], hidden_size=args.hidden_size, n_classes=args.n_classes,
+                 n_layers=args.n_layers, device=device)"""
 
     # Setting loss function and optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.alpha)
+    scheduler = StepLR(optimizer, step_size=1, gamma=args.lr_decay)
 
     # Initialize Tensors for test set
     input_test = torch.Tensor(np.array(data_test)).to(device)
@@ -68,6 +86,7 @@ def main():
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+                scheduler.step()
 
                 # Calculate the unweighted accuracy of train data
                 b_train_mask = np.asarray(b_train_mask).reshape(-1)
@@ -92,7 +111,7 @@ def main():
                                 'model_state_dict': model.state_dict(),
                                 'optimizer_state_dict': optimizer.state_dict()
                                 },
-                               "saved_models/" + "model_acc_" + "{:0.2f}".format(best_acc))
+                               "saved_models/" + "model_acc_" + "{:0.2f}".format(best_acc) + "." + str(args.modalities))
 
 
         print('Best Epoch: {}/{}.............'.format(best_epoch, args.n_epochs), end=" ")
@@ -101,7 +120,7 @@ def main():
 
 
     else:
-        model_info = torch.load("saved_models/model_acc_67.47")
+        model_info = torch.load("saved_models/model_acc_70.59.t")
         model.load_state_dict(model_info['model_state_dict'])
         model.eval()
         with torch.no_grad():
