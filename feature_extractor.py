@@ -6,8 +6,12 @@ import glob
 import re
 from sentence_transformers import SentenceTransformer
 import audiofile
+from sklearn import decomposition
+from sklearn.preprocessing import StandardScaler
+
 import opensmile
 import random
+import numpy as np
 
 
 def get_video_features(file_paths, timestamps):
@@ -24,17 +28,26 @@ def get_audio_features(file_paths, timestamps):
         feature_set=opensmile.FeatureSet.ComParE_2016,
         feature_level=opensmile.FeatureLevel.LowLevelDescriptors,
     )
+    std_slc = StandardScaler()
 
     for i, file_name in enumerate(file_paths):
         dialog_id = re.split(r"[/.]", file_name)[-2]
         audio_features[dialog_id] = []
         for timestamp in timestamps[dialog_id]:
-            signal, sampling_rate = audiofile.read(file_name, offset=float(timestamp[0]), duration=(float(timestamp[1]) - float(timestamp[0])))
+            signal, sampling_rate = audiofile.read(file_name, offset=float(timestamp[0]),
+                                                   duration=(float(timestamp[1]) - float(timestamp[0])))
             utterance_audio_features = smile.process_signal(
                 signal,
                 sampling_rate
             )
+            utterance_audio_features = np.transpose(utterance_audio_features)
+            print(utterance_audio_features.shape)
+            utterance_audio_features_std = std_slc.fit_transform(utterance_audio_features)
+            pca = decomposition.PCA(n_components=100)
+            utterance_audio_features_std_pca = pca.fit_transform(utterance_audio_features_std)
+            print(utterance_audio_features_std_pca.shape)
             audio_features[dialog_id].append(utterance_audio_features.iloc[0].values)
+        print(np.asarray(audio_features["Ses01M_impro02"]).shape)
         print(f"File {i + 1} / {len(file_paths)} files done")
 
     pickle.dump(audio_features, open("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/audio_features.pkl", "wb"), pickle.HIGHEST_PROTOCOL)
@@ -138,32 +151,183 @@ def get_file_paths():
     return evaluation_file_names, transcript_file_names, audio_file_names
 
 
-def get_dataset_ids(file_paths):
+def balanced_sampling(file_paths, labels, features):
+    sad = 0
+    hap = 0
+    angry = 0
+    neu = 0
+    exc = 0
+    fru = 0
+    sampling_rates = []
+
+    for i, elem in enumerate(labels):
+        for j, _ in enumerate(labels[elem]):
+            if labels[elem][j] == 0:
+                hap += 1
+            if labels[elem][j] == 1:
+                sad += 1
+            if labels[elem][j] == 2:
+                neu += 1
+            if labels[elem][j] == 3:
+                angry += 1
+            if labels[elem][j] == 4:
+                exc += 1
+            if labels[elem][j] == 5:
+                fru += 1
+
+    sampling_rates.append(hap/(hap+exc))
+    sampling_rates.append(hap/(sad+fru))
+    sampling_rates.append(hap/neu)
+    sampling_rates.append(hap/angry)
+    sampling_rates.append(hap/(exc+hap))
+    sampling_rates.append(hap/(fru+sad))
+
     random.shuffle(file_paths)
-    train_set_ids = set()
-    test_set_ids = set()
+    train_set = {}
+    test_set = {}
+    train_labels = {}
+    test_labels = {}
 
     for i, file_name in enumerate(file_paths):
         dialog_id = re.split(r"[/.]", file_name)[-2]
-        if i > 119:
-            print(len(train_set_ids))
-            test_set_ids.add(dialog_id)
+        if i < 120:
+            train_set[dialog_id] = []
+            train_labels[dialog_id] = []
         else:
-            train_set_ids.add(dialog_id)
+            test_set[dialog_id] = []
+            test_labels[dialog_id] = []
 
-    return train_set_ids, test_set_ids
+        for j, label in enumerate(labels[dialog_id]):
+            match label:
+                case 0:
+                    if random.random() < sampling_rates[0]:
+                        if i < 120:
+                            train_set[dialog_id].append(features[dialog_id][j])
+                            train_labels[dialog_id].append(label)
+                        else:
+                            test_set[dialog_id].append(features[dialog_id][j])
+                            test_labels[dialog_id].append(label)
+                case 1:
+                    if random.random() < sampling_rates[1]:
+                        if i < 120:
+                            train_set[dialog_id].append(features[dialog_id][j])
+                            train_labels[dialog_id].append(label)
+                        else:
+                            test_set[dialog_id].append(features[dialog_id][j])
+                            test_labels[dialog_id].append(label)
+                case 2:
+                    if random.random() < sampling_rates[2]:
+                        if i < 120:
+                            train_set[dialog_id].append(features[dialog_id][j])
+                            train_labels[dialog_id].append(label)
+                        else:
+                            test_set[dialog_id].append(features[dialog_id][j])
+                            test_labels[dialog_id].append(label)
+                case 3:
+                    if random.random() < sampling_rates[3]:
+                        if i < 120:
+                            train_set[dialog_id].append(features[dialog_id][j])
+                            train_labels[dialog_id].append(label)
+                        else:
+                            test_set[dialog_id].append(features[dialog_id][j])
+                            test_labels[dialog_id].append(label)
+                case 4:
+                    if random.random() < sampling_rates[4]:
+                        if i < 120:
+                            train_set[dialog_id].append(features[dialog_id][j])
+                            train_labels[dialog_id].append(label)
+                        else:
+                            test_set[dialog_id].append(features[dialog_id][j])
+                            test_labels[dialog_id].append(label)
+                case 5:
+                    if random.random() < sampling_rates[5]:
+                        if i < 120:
+                            train_set[dialog_id].append(features[dialog_id][j])
+                            train_labels[dialog_id].append(label)
+                        else:
+                            test_set[dialog_id].append(features[dialog_id][j])
+                            test_labels[dialog_id].append(label)
+    """sad = 0
+    hap = 0
+    angry = 0
+    neu = 0
+    exc = 0
+    fru = 0
+
+    for i, elem in enumerate(labels):
+        for j, _ in enumerate(labels[elem]):
+            if labels[elem][j] == 0:
+                hap += 1
+            if labels[elem][j] == 1:
+                sad += 1
+            if labels[elem][j] == 2:
+                neu += 1
+            if labels[elem][j] == 3:
+                angry += 1
+            if labels[elem][j] == 4:
+                exc += 1
+            if labels[elem][j] == 5:
+                fru += 1
+    print(f"sad: {sad} happy: {hap} angry: {angry} neutural: {neu} excited: {exc} frutrated: {fru}")
+    sad = 0
+    hap = 0
+    angry = 0
+    neu = 0
+    exc = 0
+    fru = 0
+
+    for i, elem in enumerate(train_labels):
+        for j, _ in enumerate(train_labels[elem]):
+            if train_labels[elem][j] == 0:
+                hap += 1
+            if train_labels[elem][j] == 1:
+                sad += 1
+            if train_labels[elem][j] == 2:
+                neu += 1
+            if train_labels[elem][j] == 3:
+                angry += 1
+            if train_labels[elem][j] == 4:
+                exc += 1
+            if train_labels[elem][j] == 5:
+                fru += 1
+    print(f"sad: {sad} happy: {hap} angry: {angry} neutural: {neu} excited: {exc} frutrated: {fru}")
+    sad = 0
+    hap = 0
+    angry = 0
+    neu = 0
+    exc = 0
+    fru = 0
+
+    for i, elem in enumerate(test_labels):
+        for j, _ in enumerate(test_labels[elem]):
+            if test_labels[elem][j] == 0:
+                hap += 1
+            if test_labels[elem][j] == 1:
+                sad += 1
+            if test_labels[elem][j] == 2:
+                neu += 1
+            if test_labels[elem][j] == 3:
+                angry += 1
+            if test_labels[elem][j] == 4:
+                exc += 1
+            if test_labels[elem][j] == 5:
+                fru += 1
+    print(f"sad: {sad} happy: {hap} angry: {angry} neutural: {neu} excited: {exc} frutrated: {fru}")"""
+
+    return train_set, train_labels, test_set, test_labels
 
 
 def main():
     evaluation_file_names, transcript_file_names, audio_file_names = get_file_paths()
-    train_set, test_set = get_dataset_ids(transcript_file_names)
     label_lookup_dict, timestamps = extract_label_lookup_dict_and_timestamps(evaluation_file_names)
     dialog_utterance_ids = get_utterance_ids(transcript_file_names, label_lookup_dict)
     dialog_utterance_labels = get_labels(dialog_utterance_ids, label_lookup_dict)
     dialog_text_features = get_text_features(transcript_file_names, dialog_utterance_ids)
     dialog_audio_features = get_audio_features(audio_file_names, timestamps)
+    train_set, test_set, train_labels, test_labels = balanced_sampling(transcript_file_names, dialog_utterance_labels, dialog_text_features)
 
-    pickle.dump([dialog_utterance_ids, dialog_text_features, dialog_audio_features, dialog_utterance_labels, train_set, test_set],
+
+    pickle.dump([dialog_utterance_ids, dialog_text_features, dialog_audio_features, dialog_utterance_labels, train_set, test_set, train_labels, test_labels],
                 open("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/combined/IEMOCAP_features_raw.pkl", "wb"),
                 protocol=pickle.HIGHEST_PROTOCOL)
 

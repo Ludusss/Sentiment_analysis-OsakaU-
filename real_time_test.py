@@ -1,17 +1,21 @@
 import argparse
-import os
-
 import numpy as np
 import torch
 from sentence_transformers import SentenceTransformer
-import random
-from luo.model import hir_fullModel
+from AudioRecorder import AudioRecorder
 from model import LSTM
+from rev_ai import apiclient, JobStatus
+
+ACCESS_TOKEN = "028Y1kOBwGp6Jt1W2n7oR8Qzd3KWRqrY8G7rJZTKNOx-Ac_j16-BJ-v8viQh_8ELgOJMc85D1zdvJkTwhSoNRZomVq9Fw"
+RATE = 44100
+CHUNK = int(RATE / 10)
+WAV_FILE_PATH = "recordings/test.wav"
 
 
 def get_sentiment(label):
     labels = {0: "Happy", 1: "Sad", 2: "Neutural", 3: "Angry", 4: "Excited", 5: "Frustrated"}
     return labels[label]
+
 
 def main():
     parser = argparse.ArgumentParser(description='MOSEI Sentiment Analysis')
@@ -37,30 +41,36 @@ def main():
                         help='Train on the baseline (default: Ture)')
     parser.add_argument('--classifier', type=str, default='mlp',
                         help='use mlp or lstm for decision level fusion (default: mlp)')
-
     args = parser.parse_args()
 
+    # Initialize models
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+    client = apiclient.RevAiAPIClient(ACCESS_TOKEN)    # Connect to rev ai ASR
     bert = SentenceTransformer('all-mpnet-base-v2')    # Load s-bert model for text feature extractions
-    model = LSTM(768, 300, 4, 200, 2, device)
-    model.load_state_dict(torch.load("saved_models/model_acc_64.91.t")["model_state_dict"])
-    """os.chdir("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/luo")
-    model = hir_fullModel(batch_size=args.batch_size, mode=args.bl, classifier=args.classifier,
-                          output_size=args.output_size, hidden_dim=args.hidden_dim,
-                          fc_dim=args.fc_dim, dropout=args.dropout, n_layers=args.n_layers)
-    os.chdir("/Users/ludus/Projects/Sentiment_analysis-OsakaU-")
-    model.load_state_dict(torch.load(args.full_dict, map_location='cpu'))"""
+    model = LSTM(768, 300, 4, 200, 2, device)          # Initialize Sentiment Analysis Network
+    model.load_state_dict(torch.load("saved_models/model_acc_64.91.t")["model_state_dict"])     # Load per-trained model
 
     while True:
-        sentence = input("Write text to be analyzed: ")
+        print("Press and hold the 'r' key to begin recording. Release the 'r' key to end recording. Press 'Escape' to exit")
+        with AudioRecorder(RATE, CHUNK, WAV_FILE_PATH) as audio_recorder:
+            audio_recorder.join()
+
+        job = client.submit_job_local_file(WAV_FILE_PATH)
+
+        # check job status
+        while True:
+            job_details = client.get_job_details(job.id)
+            if job_details.status == JobStatus.TRANSCRIBED:
+                break
+
+        text = client.get_transcript_text(job.id)
+        sentence = text.split("    ")[2].strip()
+        print(sentence)
         sentence_embedding = np.asarray(list(bert.encode(sentence, batch_size=1)))
         text_input = torch.Tensor(sentence_embedding.reshape(1, 1, 768)).to(device)
         output = model(text_input)
         output_label = torch.argmax(output)
         print(get_sentiment(output_label.item()))
-        if sentence == "stop":
-            return
 
 
 if __name__ == '__main__':

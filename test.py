@@ -26,7 +26,7 @@ def main():
                         help='batch size (default: 10)')
     parser.add_argument('--save_model_threshold', type=float, default=60,
                         help='threshold for saving model (default: 69)')
-    parser.add_argument('--use_pretrained', type=bool, default=False,
+    parser.add_argument('--use_pretrained', type=bool, default=True,
                         help='Use pretrained model (default: False)')
     parser.add_argument('--fc_dim', type=int, default=200,
                         help='dimension of fc layer in LSTM (default: 200)')
@@ -120,7 +120,7 @@ def main():
 
 
     else:
-        model_info = torch.load("saved_models/model_acc_70.59.t")
+        model_info = torch.load("saved_models/model_acc_64.91.t")
         model.load_state_dict(model_info['model_state_dict'])
         model.eval()
         with torch.no_grad():
