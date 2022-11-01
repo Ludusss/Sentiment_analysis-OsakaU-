@@ -24,16 +24,16 @@ def main():
                         help='number of hidden layers (default: 1)')
     parser.add_argument('--batch_size', type=int, default=10,
                         help='batch size (default: 10)')
-    parser.add_argument('--save_model_threshold', type=float, default=60,
+    parser.add_argument('--save_model_threshold', type=float, default=43,
                         help='threshold for saving model (default: 69)')
-    parser.add_argument('--use_pretrained', type=bool, default=True,
+    parser.add_argument('--use_pretrained', type=bool, default=False,
                         help='Use pretrained model (default: False)')
     parser.add_argument('--fc_dim', type=int, default=200,
                         help='dimension of fc layer in LSTM (default: 200)')
     parser.add_argument(
         "--modalities",
         type=str,
-        default="t",
+        default="at",
         choices=["a", "t", "v", "at", "tv", "av", "atv"],
         help="Modalities",
     )
@@ -45,7 +45,7 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
     # Load Dataset
-    data_train, data_test, train_text, test_text, train_label, test_label, train_seq_len, test_seq_len, train_mask, test_mask = get_extracted_data()
+    data_train, data_test, train_text, train_audio, test_text, test_audio, train_label, test_label, train_seq_len, test_seq_len, train_mask, test_mask = get_extracted_data()
     #data_train1, data_test1, audio_train, audio_test, text_train1, text_test1, video_train, video_test, train_label1, test_label1, seqlen_train1, seqlen_test1, train_mask1, test_mask1 = get_iemocap_data()
 
     # Define model - using concatenated multimodal features (video, audio, transcript)
@@ -117,7 +117,6 @@ def main():
         print('Best Epoch: {}/{}.............'.format(best_epoch, args.n_epochs), end=" ")
         print("Train accuracy: {:.2f}% Test accuracy: {:.2f}%".format(train_acc, best_acc))
         print(classify_report)
-
 
     else:
         model_info = torch.load("saved_models/model_acc_64.91.t")

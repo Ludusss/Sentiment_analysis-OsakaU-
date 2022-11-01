@@ -1,3 +1,4 @@
+import random
 import numpy as np
 import pickle
 import torch
@@ -16,16 +17,103 @@ def report_acc(output, target, mask):
     acc = (sum(map(eq, target, pred)) / len(pred)) * 100.0
     f1 = metrics.f1_score(target, pred, average='weighted')
     conf_matrix = metrics.confusion_matrix(target, pred)
-    classify_report = metrics.classification_report(target, pred, digits=4)
+    classify_report = metrics.classification_report(target, pred, digits=4, zero_division=0)
 
     return acc, f1, conf_matrix, classify_report
 
-def gen_bashes(features, labels, mask, batch_size, shuffle=True):
+
+def gen_bashes(features, labels, mask, batch_size):
     permutation = torch.randperm(len(features))
 
     for i in range(0, len(features), batch_size):
         indices = permutation[i:i+batch_size]
         yield zip(features[indices], labels[indices], mask[indices])
+
+
+def get_extracted_data():
+    train_text = []
+    train_audio = []
+    train_seq_len = []
+    train_labels = []
+
+    test_text = []
+    test_audio = []
+    test_seq_len = []
+    test_labels = []
+
+    f = open("extracted_data/combined/IEMOCAP_features_raw.pkl", "rb")
+    utterance_ids, text_features, audio_features, labels, train_set, test_set = pickle.load(f)
+
+    for train_dialog_id in train_set.keys():
+        train_seq_len.append(len(utterance_ids[train_dialog_id]))
+    for test_dialog_id in test_set.keys():
+        test_seq_len.append(len(utterance_ids[test_dialog_id]))
+
+    max_len = max(max(train_seq_len), max(test_seq_len))
+
+    for train_dialog_id in train_set:
+        train_labels.append(labels[train_dialog_id] + [0] * (max_len - len(utterance_ids[train_dialog_id])))
+
+        pad = [np.zeros(text_features[train_dialog_id][0].shape)] * (max_len - len(utterance_ids[train_dialog_id]))
+        text = np.stack(text_features[train_dialog_id] + pad, axis=0)
+        train_text.append(text)
+
+        pad = [np.zeros(np.asarray(audio_features[train_dialog_id][0]).shape)] * (max_len - len(utterance_ids[train_dialog_id]))
+        audio = np.stack(audio_features[train_dialog_id] + pad, axis=0)
+        train_audio.append(audio)
+
+    for test_dialog_id in test_set:
+        test_labels.append(labels[test_dialog_id] + [0] * (max_len - len(utterance_ids[test_dialog_id])))
+
+        pad = [np.zeros(text_features[test_dialog_id][0].shape)] * (max_len - len(utterance_ids[test_dialog_id]))
+        text = np.stack(text_features[test_dialog_id] + pad, axis=0)
+        test_text.append(text)
+
+        pad = [np.zeros(np.asarray(audio_features[test_dialog_id][0]).shape)] * (max_len - len(utterance_ids[test_dialog_id]))
+        text = np.stack(audio_features[test_dialog_id] + pad, axis=0)
+        test_audio.append(text)
+
+    train_text = np.stack(train_text, axis=0)
+    train_audio = np.stack(train_audio, axis=0)
+
+    test_text = np.stack(test_text, axis=0)
+    test_audio = np.stack(test_audio, axis=0)
+
+    train_label = np.array(train_labels)
+    test_label = np.array(test_labels)
+    train_seq_len = np.array(train_seq_len)
+    test_seq_len = np.array(test_seq_len)
+
+    train_mask = np.zeros((train_text.shape[0], train_text.shape[1]), dtype='float')
+    for i in range(len(train_seq_len)):
+        train_mask[i, :train_seq_len[i]] = 1.0
+
+    test_mask = np.zeros((test_text.shape[0], test_text.shape[1]), dtype='float')
+    for i in range(len(test_seq_len)):
+        test_mask[i, :test_seq_len[i]] = 1.0
+
+    for i in range(train_label.shape[0]):
+        for j in range(train_label.shape[1]):
+            if train_label[i][j] == 4:  # set excited to happy
+                train_label[i][j] = 0
+            if train_label[i][j] == 5:  # set frustrated to sad
+                train_label[i][j] = 1
+                # train_mask[i][j]=0
+
+    for i in range(test_label.shape[0]):
+        for j in range(test_label.shape[1]):
+            if test_label[i][j] == 4:  # set excited to happy
+                test_label[i][j] = 0
+            if test_label[i][j] == 5:  # set frustrated to sad
+                test_label[i][j] = 1
+                # test_mask[i][j]=0
+
+    train_data = np.concatenate((train_audio, train_text), axis=-1)
+    test_data = np.concatenate((test_audio, test_text), axis=-1)
+
+    test_mask = test_mask.reshape(3410)
+
+    return train_data, test_data, train_text, train_audio, test_text, test_audio, train_label, test_label, train_seq_len, test_seq_len, train_mask, test_mask
 
 
 def get_iemocap_data():

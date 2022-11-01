@@ -5,6 +5,8 @@ from sentence_transformers import SentenceTransformer
 from AudioRecorder import AudioRecorder
 from model import LSTM
 from rev_ai import apiclient, JobStatus
+import os
+import csv
 
 ACCESS_TOKEN = "028Y1kOBwGp6Jt1W2n7oR8Qzd3KWRqrY8G7rJZTKNOx-Ac_j16-BJ-v8viQh_8ELgOJMc85D1zdvJkTwhSoNRZomVq9Fw"
 RATE = 44100
@@ -47,8 +49,8 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     client = apiclient.RevAiAPIClient(ACCESS_TOKEN)    # Connect to rev ai ASR
     bert = SentenceTransformer('all-mpnet-base-v2')    # Load s-bert model for text feature extractions
-    model = LSTM(768, 300, 4, 200, 2, device)          # Initialize Sentiment Analysis Network
-    model.load_state_dict(torch.load("saved_models/model_acc_64.91.t")["model_state_dict"])     # Load per-trained model
+    model = LSTM(1152, 300, 4, 200, 2, device)          # Initialize Sentiment Analysis Network
+    model.load_state_dict(torch.load("saved_models/model_acc_45.61.at")["model_state_dict"])     # Load per-trained model
 
     while True:
         print("Press and hold the 'r' key to begin recording. Release the 'r' key to end recording. Press 'Escape' to exit")
@@ -65,10 +67,16 @@ def main():
 
         text = client.get_transcript_text(job.id)
         sentence = text.split("    ")[2].strip()
-        print(sentence)
         sentence_embedding = np.asarray(list(bert.encode(sentence, batch_size=1)))
-        text_input = torch.Tensor(sentence_embedding.reshape(1, 1, 768)).to(device)
-        output = model(text_input)
+        cmd = f"SMILExtract -C opensmile/config/is09-13/IS09_emotion.conf -I {WAV_FILE_PATH} -O extracted_data/test.csv -l 0"
+        os.system(cmd)
+        reader = csv.reader(open("extracted_data/test.csv", 'r'))
+        rows = [row for row in reader]
+        last_line = rows[-1]
+        audio_features = np.asarray(list(map(lambda x: float(x), last_line[1: 385])))
+        input_data = np.concatenate((audio_features, sentence_embedding))
+        input_data = torch.Tensor(input_data.reshape(1, 1, 1152)).to(device)
+        output = model(input_data)
         output_label = torch.argmax(output)
         print(get_sentiment(output_label.item()))
 
