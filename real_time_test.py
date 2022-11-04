@@ -1,23 +1,36 @@
 import argparse
+import time
+
 import numpy as np
 import torch
 from sentence_transformers import SentenceTransformer
 from AudioRecorder import AudioRecorder
 from model import LSTM
-from rev_ai import apiclient, JobStatus
+from google.cloud import speech
 import os
 import csv
+from google.cloud import storage
 
-ACCESS_TOKEN = "028Y1kOBwGp6Jt1W2n7oR8Qzd3KWRqrY8G7rJZTKNOx-Ac_j16-BJ-v8viQh_8ELgOJMc85D1zdvJkTwhSoNRZomVq9Fw"
-RATE = 44100
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "google_cloud_key.json"
+
+RATE = 16000
 CHUNK = int(RATE / 10)
 WAV_FILE_PATH = "recordings/test.wav"
+BUCKET_NAME = "ludus_sentiment-analysis"
 
 
 def get_sentiment(label):
     labels = {0: "Happy", 1: "Sad", 2: "Neutural", 3: "Angry", 4: "Excited", 5: "Frustrated"}
     return labels[label]
 
+
+def upload_blob(bucket_name, source_file_name, destination_blob_name):
+    """Uploads a file to the bucket."""
+    storage_client = storage.Client()
+    bucket = storage_client.get_bucket(bucket_name)
+    blob = bucket.blob(destination_blob_name)
+
+    blob.upload_from_filename(source_file_name)
 
 def main():
     parser = argparse.ArgumentParser(description='MOSEI Sentiment Analysis')
@@ -47,7 +60,7 @@ def main():
 
     # Initialize models
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    client = apiclient.RevAiAPIClient(ACCESS_TOKEN)    # Connect to rev ai ASR
+    client = speech.SpeechClient()    # Connect to google asr
     bert = SentenceTransformer('all-mpnet-base-v2')    # Load s-bert model for text feature extractions
     model = LSTM(1152, 300, 4, 200, 2, device)          # Initialize Sentiment Analysis Network
     model.load_state_dict(torch.load("saved_models/model_acc_45.61.at")["model_state_dict"])     # Load per-trained model
@@ -57,16 +70,22 @@ def main():
         with AudioRecorder(RATE, CHUNK, WAV_FILE_PATH) as audio_recorder:
             audio_recorder.join()
 
-        job = client.submit_job_local_file(WAV_FILE_PATH)
+        upload_blob(BUCKET_NAME, WAV_FILE_PATH, WAV_FILE_PATH.split("/")[1])
+        audio = speech.RecognitionAudio(uri="gs://ludus_sentiment-analysis/test.wav")
 
-        # check job status
-        while True:
-            job_details = client.get_job_details(job.id)
-            if job_details.status == JobStatus.TRANSCRIBED:
-                break
+        config = speech.RecognitionConfig(
+            encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+            sample_rate_hertz=16000,
+            language_code="en-US",
+        )
 
-        text = client.get_transcript_text(job.id)
-        sentence = text.split("    ")[2].strip()
+        response = client.recognize(config=config, audio=audio)
+
+        sentence = ""
+        for res in response.results:
+            print("Transcript: {}".format(res.alternatives[0].transcript))
+            sentence += res.alternatives[0].transcript
+
         sentence_embedding = np.asarray(list(bert.encode(sentence, batch_size=1)))
         cmd = f"SMILExtract -C opensmile/config/is09-13/IS09_emotion.conf -I {WAV_FILE_PATH} -O extracted_data/test.csv -l 0"
         os.system(cmd)

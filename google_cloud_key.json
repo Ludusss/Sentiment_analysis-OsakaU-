@@ -1,0 +1,12 @@
+{
+  "type": "service_account",
+  "project_id": "pro-sylph-367604",
+  "private_key_id": "dadfee67ea758a0223e42319ac2327b57b885d97",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQD8h0mBmX4hnCRG\ne1Km+5z3dub8IpvzgdnVcUgtZ4nSVy6LMOggSQ1Nwmz8CON9Kmg4giPPVAGIUS4r\nIVS4Q8qG4RDl/3Pj3dA91R2huS3b15iihSsx7AQoqVBfFArOrWtwDvhfXMAPAYe9\nB9V3sai7lxqpJkkS2Cx33Iztvbne8elHcGTpVLAN5wYnrCd0x51rCkoxHj+bZbY7\nbCkHsayRPTePoz2qzJOfzUfDuACLpSovpo+qvchlKQ2cWsZ3fA6JZq8KvtF5xDcj\npjqRaZ+WbF+z0/C3DeBwMS54tLzFGt71y+sWTWc0YroYce1wUcCARxYMoK8rfgDQ\npXol6sXPAgMBAAECggEAfQ9iz9P8KxjwvhcE771cFxHDgsqBAS8lehcH77R/BLQ4\nUKZ/zr1e4UuQPaEJSEtgIdwRb/PibmgFvUZcdoTcH8AGZmEEO6z2HCkW66iRlXZI\nGPRqV+bSiHCRZQS/9Wrc8jn3twJv+v5/ApaGmShar8w9X9eeCL8WBqYrBPIYwtd/\nIQiJhv4ERp2q9lDvTy1QtWnigPrY/oGsbgrTefhyZwXCgw+Zom/vFrasP5aE8c/w\nle0IDXw3tRyXODPGAOY4iUKE9t2NwZ0gv8ty93PJ1OsEQzUlAjYPEDiXVDE2ZEY0\nK8Qc2bm4zSjWtwtMYog6Q8BZVst8nhko1SzVeVE1AQKBgQD/RSr8sPM3d7mLQ0OE\n+QznI8hcfv/7b/Rh6BnbpMNXKd5I1mYqGbOqj+sUaDYzaPhVQ+YH59Gu7bmyFv1e\nmv0iFGv8W1nYoPnWmxavv+PiUHn6BBSOOuF8yrtCl/e6xPF9msOw73smeAmcIdaN\nFL13ZProtre3+4TH4DXFEG7Z/wKBgQD9QBzQJqcr8hmnaPPqu50uhufiYM1bAGML\norVLpRfBoDkvpdmXrw7NXxe/9bQeuOEvvWRK+bki26sUbn+vAI5fPc4Zh044JL29\nABqIFQzT++QwsiJjX6CsipUYxJdQ9aaRnLfEzRprlwrnkkLBfKu4ozIz13skq6ss\n1kSWrxT0MQKBgQCmkHBzP9cDy3hjWXmWK5fyvlN/n1LSswOIWxV8T28y0dv8NQGm\n2Ox2D8B5qWIse4MGx+4yHF6iwPWZMg0TjRg9A4xOtyDSDH/ZO4s7FH/S7WYZ8E2l\nXOBDOFmmI1j/IoDcz35/VlRKDqtemGnR1sWmQVrDPG52e4Txkugi9Q0P6wKBgQCk\nXIXWuh9pMBliQ4V65QTge4HntHfTBe9CT/ll/OHsMraqq/MKtPzgYUUiuq6J+ed8\nemirGGQFsZfZDNYlmDDOs2gdvWkQmxfhoD2X8EGBG0xAJnyXDitTkCWwC3dBfgz7\nGEFUouDwzviuzogw118D2Dbu2nz7kcbotK+TNFJfIQKBgGaxWMDbkZ0dst/k+Nwq\nzEqofwP8a9e+oQHiC7TytLsRdZTe4j7DMcZv0ljPzrp0WWWACuw1KCHq7quvGqCH\nEmms7XHxfWLVew6zm4AjByB2tXzpD066nOIC1Grt+onRi0HCY++QkCTgl+4vFmTV\ncU/n2eAeLqUiee21reUgCHCO\n-----END PRIVATE KEY-----\n",
+  "client_email": "sentimentstorage@pro-sylph-367604.iam.gserviceaccount.com",
+  "client_id": "108253677720871062671",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/sentimentstorage%40pro-sylph-367604.iam.gserviceaccount.com"
+}
