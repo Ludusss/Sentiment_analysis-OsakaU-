@@ -4,18 +4,20 @@ import time
 import numpy as np
 import torch
 from sentence_transformers import SentenceTransformer
-from AudioRecorder import AudioRecorder
+from Recorder import Recorder
 from model import LSTM
 from google.cloud import speech
 import os
 import csv
 from google.cloud import storage
+from pynput.keyboard import Key, Listener
 
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "google_cloud_key.json"
 
-RATE = 16000
-CHUNK = int(RATE / 10)
+RATE = 44100
+CHUNK = 1024
 WAV_FILE_PATH = "recordings/test.wav"
+AVI_FILE_PATH = "/Users/ludus/Projects/Sentiment_analysis-OsakaU-/recordings/test.avi"
 BUCKET_NAME = "ludus_sentiment-analysis"
 
 
@@ -66,16 +68,21 @@ def main():
     model.load_state_dict(torch.load("saved_models/model_acc_45.61.at")["model_state_dict"])     # Load per-trained model
 
     while True:
-        print("Press and hold the 'r' key to begin recording. Release the 'r' key to end recording. Press 'Escape' to exit")
-        with AudioRecorder(RATE, CHUNK, WAV_FILE_PATH) as audio_recorder:
-            audio_recorder.join()
+        recorder = Recorder(RATE, CHUNK, WAV_FILE_PATH, AVI_FILE_PATH)
+        #print("Press and hold the 'r' key to begin recording. Release the 'r' key to end recording. Press 'Escape' to exit")
+        """with Recorder(RATE, CHUNK, WAV_FILE_PATH, AVI_FILE_PATH) as recorder:
+            recorder.join()"""
+
+        recorder.start()
+        time.sleep(5)
+        recorder.stop()
 
         upload_blob(BUCKET_NAME, WAV_FILE_PATH, WAV_FILE_PATH.split("/")[1])
         audio = speech.RecognitionAudio(uri="gs://ludus_sentiment-analysis/test.wav")
 
         config = speech.RecognitionConfig(
             encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-            sample_rate_hertz=16000,
+            sample_rate_hertz=44100,
             language_code="en-US",
         )
 
@@ -98,7 +105,18 @@ def main():
         output = model(input_data)
         output_label = torch.argmax(output)
         print(get_sentiment(output_label.item()))
+        time.sleep(2)
 
+def on_press(key):
+    print('{0} pressed'.format(
+        key))
+
+def on_release(key):
+    print('{0} release'.format(
+        key))
+    if key == Key.esc:
+        # Stop listener
+        return False
 
 if __name__ == '__main__':
     print("Starting")
