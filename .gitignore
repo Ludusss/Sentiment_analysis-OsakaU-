@@ -5,3 +5,13 @@ opensmile/
 cmumosei_highlevel/
 cmumosei_labels/
 cmumosei_raw/
+recordings/
+node_modules/
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+__pycache__/
