@@ -1,5 +1,7 @@
 raw_data/
-luo/
 opensmile/
 .vscode/
-MSA-Robustness/
+.idea/
+cmumosei_highlevel/
+cmumosei_labels/
+cmumosei_raw/

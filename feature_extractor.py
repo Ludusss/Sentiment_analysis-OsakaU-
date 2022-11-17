@@ -5,14 +5,31 @@ import pickle
 import os
 import glob
 import re
+
+import pandas as pd
 from sentence_transformers import SentenceTransformer
 import random
 import numpy as np
+from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 
 
 def get_video_features(file_paths, timestamps):
-    pass
+    if os.path.isfile("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/video_features.pkl"):
+        print("Loaded audio-features")
+        return pickle.load(
+            open("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/video_features.pkl", "rb"))
+    print("Extracting video-features...")
+    video_features = {}
 
+    for i, file_name in enumerate(file_paths):
+        dialog_id = re.split(r"[/.]", file_name)[-2]
+        video_features[dialog_id] = []
+
+        for timestamp in timestamps[dialog_id]:
+            ffmpeg_extract_subclip(file_name, float(timestamp[0]), float(timestamp[1]), targetname="delete_me.avi")
+            cmd = "openFace/OpenFace/build/bin/FaceLandmarkVidMulti -f delete_me.avi -out_dir delete_folder"
+            os.system(cmd)
+            time.sleep(100)
 
 def get_audio_features(file_paths, timestamps):
     if os.path.isfile("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/audio_features.pkl"):
@@ -123,6 +140,8 @@ def get_file_paths():
     transcript_file_names = []
     evaluation_file_names = []
     audio_file_names = []
+    video_file_names = []
+
     # get file paths
     for i in range(1, 6):
         evaluation_file_names.extend(
@@ -132,8 +151,11 @@ def get_file_paths():
         audio_file_names.extend(
             glob.glob("raw_data/IEMOCAP_full_release/Session" + str(i) + "/dialog/wav/*.wav")
         )
+        video_file_names.extend(
+            glob.glob("raw_data/IEMOCAP_full_release/Session" + str(i) + "/dialog/avi/DivX/*.avi")
+        )
 
-    return evaluation_file_names, transcript_file_names, audio_file_names
+    return evaluation_file_names, transcript_file_names, audio_file_names, video_file_names
 
 
 def train_test_split(file_paths):
@@ -317,12 +339,13 @@ def balanced_sampling(file_paths, labels, text_features, audio_features):
 
 
 def main():
-    evaluation_file_names, transcript_file_names, audio_file_names = get_file_paths()
+    evaluation_file_names, transcript_file_names, audio_file_names, video_file_names = get_file_paths()
     label_lookup_dict, timestamps = extract_label_lookup_dict_and_timestamps(evaluation_file_names)
     dialog_utterance_ids = get_utterance_ids(transcript_file_names, label_lookup_dict)
     dialog_utterance_labels = get_labels(dialog_utterance_ids, label_lookup_dict)
     dialog_text_features = get_text_features(transcript_file_names, dialog_utterance_ids)
     dialog_audio_features = get_audio_features(audio_file_names, timestamps)
+    dialog_video_features = get_video_features(video_file_names, timestamps)
     #train_set, test_set, train_labels, test_labels = balanced_sampling(transcript_file_names, dialog_utterance_labels, dialog_text_features, dialog_audio_features)
     train_set, test_set = train_test_split(transcript_file_names)
 
