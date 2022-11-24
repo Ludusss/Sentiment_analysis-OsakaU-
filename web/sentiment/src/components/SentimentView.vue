@@ -5,6 +5,16 @@
       <prime-button v-if="!recording" :label="label" @click="startRecording" />
       <prime-button v-else label="stop" @click="stopRecording" />
     </div>
+    <div v-if="sentiment != 'null'" class="flex flex-column align-items-center mt-8">
+      <h2>Your Sentiment:</h2>
+      <img v-if="sentiment == 'happy'" src="../assets/happy.png" alt="Happy" />
+      <img v-if="sentiment == 'angry'" src="../assets/angry.png" alt="Angry" />
+      <img
+        v-if="sentiment == 'neutral'"
+        src="../assets/neutral.png"
+        alt="Neutral"
+      />
+    </div>
   </div>
 </template>
 
@@ -17,6 +27,7 @@ export default {
   setup() {
     const recording = ref(false);
     const label = ref("Start sentiment recording");
+    const sentiment = ref("null");
 
     var audioRecorder = {
       audioBlobs: [],
@@ -155,10 +166,12 @@ export default {
               },
             })
             .then((result) => {
+              sentiment.value = result.data;
               console.log(result.data);
             })
             .catch((error) => {
               console.log(error);
+              sentiment.value = "null";
             });
         })
         .catch((error) => {
@@ -180,6 +193,7 @@ export default {
     return {
       recording,
       label,
+      sentiment,
       startRecording,
       stopRecording,
       cancelRecording,
