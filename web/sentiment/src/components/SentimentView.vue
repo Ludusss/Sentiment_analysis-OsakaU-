@@ -5,15 +5,17 @@
       <prime-button v-if="!recording" :label="label" @click="startRecording" />
       <prime-button v-else label="stop" @click="stopRecording" />
     </div>
-    <div v-if="sentiment != 'null'" class="flex flex-column align-items-center mt-8">
+    <div v-if="transcription != ''" class="flex flex-column align-items-center">
+      <h2 v-if="transcription != '***Transcription failed***'">Transcription:</h2>
+      <p>{{ transcription }}</p>
+    </div>
+    <div v-if="sentiment != 'null'" class="flex flex-column align-items-center mt-4">
       <h2>Your Sentiment:</h2>
-      <img v-if="sentiment == 'happy'" src="../assets/happy.png" alt="Happy" />
-      <img v-if="sentiment == 'angry'" src="../assets/angry.png" alt="Angry" />
-      <img
-        v-if="sentiment == 'neutral'"
-        src="../assets/neutral.png"
-        alt="Neutral"
-      />
+      <img v-if="sentiment == 'Happy'" src="../assets/happy.png" alt="Happy" width="120" height="120" />
+      <img v-if="sentiment == 'Angry'" src="../assets/angry.png" alt="Angry" width="120" height="120" />
+      <img v-if="sentiment == 'Neutral'" src="../assets/neutral.png" alt="Neutral" width="120" height="120" />
+      <img v-if="sentiment == 'Sad'" src="../assets/sad.png" alt="Sad" />
+      <p>{{ sentimentText }}</p>
     </div>
   </div>
 </template>
@@ -28,6 +30,8 @@ export default {
     const recording = ref(false);
     const label = ref("Start sentiment recording");
     const sentiment = ref("null");
+    const sentimentText = ref("");
+    const transcription = ref("");
 
     var audioRecorder = {
       audioBlobs: [],
@@ -97,6 +101,9 @@ export default {
     };
 
     const startRecording = () => {
+      sentiment.value = "null";
+      sentimentText.value = "";
+      transcription.value = "";
       audioRecorder
         .start()
         .then(() => {
@@ -166,8 +173,12 @@ export default {
               },
             })
             .then((result) => {
-              sentiment.value = result.data;
-              console.log(result.data);
+              if (result.data === null)
+                sentiment.value = "null"
+              else
+                sentiment.value = result.data;
+              sentimentText.value = result.data;
+              transcription.value = result.statusText;
             })
             .catch((error) => {
               console.log(error);
@@ -194,6 +205,8 @@ export default {
       recording,
       label,
       sentiment,
+      sentimentText,
+      transcription,
       startRecording,
       stopRecording,
       cancelRecording,

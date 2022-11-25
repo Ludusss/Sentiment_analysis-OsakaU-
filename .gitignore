@@ -15,3 +15,6 @@ node_modules/
 *.sln
 *.sw?
 __pycache__/
+google_cloud_key.json
+word2vec_models/
+Cross-Modal-BERT/
