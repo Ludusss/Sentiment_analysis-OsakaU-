@@ -1,141 +1,221 @@
 import argparse
+import time
+
+import pandas as pd
 import torch
 from torch import nn
 from torch.optim.lr_scheduler import StepLR
 
+from process_mosei import *
 from utils import *
-from model import LSTM, LSTM1
+from model import LSTM, LSTM1, LSTM_ATTN, LSTMSep
 import torch.utils.data
 import numpy as np
 
 
 def main():
     parser = argparse.ArgumentParser(description='IEMOCAP Sentiment Analysis')
-
+    parser.add_argument('--use_own', type=bool, default=False,
+                        help='Use own extracted features (default: False')
     parser.add_argument('--alpha', type=float, default=0.001,
                         help='initial learning rate (default: 0.001)')
     parser.add_argument('--n_classes', type=int, default=4,
                         help='number of classes in the network (default: 4)')
     parser.add_argument('--n_epochs', type=int, default=35,
                         help='number of epochs (default: 100)')
-    parser.add_argument('--hidden_size', type=int, default=300,
+    parser.add_argument('--hidden_size', type=int, default=128,
                         help='dimension of hidden layer in LSTM (default: 128)')
-    parser.add_argument('--n_layers', type=int, default=2,
+    parser.add_argument('--n_layers', type=int, default=1,
                         help='number of hidden layers (default: 1)')
     parser.add_argument('--batch_size', type=int, default=10,
                         help='batch size (default: 10)')
-    parser.add_argument('--save_model_threshold', type=float, default=43,
-                        help='threshold for saving model (default: 69)')
+    parser.add_argument('--save_model_threshold_text', type=float, default=61,
+                        help='threshold for saving text model (default: 61)')
+    parser.add_argument('--save_model_threshold_audio', type=float, default=36,
+                        help='threshold for saving audio model (default: 36)')
     parser.add_argument('--use_pretrained', type=bool, default=False,
                         help='Use pretrained model (default: False)')
+    parser.add_argument('--use_pretrained_text', type=bool, default=False,
+                        help='Use pretrained text model (default: False)')
+    parser.add_argument('--use_pretrained_audio', type=bool, default=False,
+                        help='Use pretrained audio model (default: False)')
     parser.add_argument('--fc_dim', type=int, default=200,
                         help='dimension of fc layer in LSTM (default: 200)')
-    parser.add_argument(
-        "--modalities",
-        type=str,
-        default="at",
-        choices=["a", "t", "v", "at", "tv", "av", "atv"],
-        help="Modalities",
-    )
     parser.add_argument('--lr_decay', type=float, default=0.999,
                         help='Learning rate decay rate (default: 0.99)')
 
     args = parser.parse_args()
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        
+
+    #process_data()
+
+    #print("done")
+
+
     # Load Dataset
-    data_train, data_test, train_text, train_audio, test_text, test_audio, train_label, test_label, train_seq_len, test_seq_len, train_mask, test_mask = get_extracted_data()
-    #data_train1, data_test1, audio_train, audio_test, text_train1, text_test1, video_train, video_test, train_label1, test_label1, seqlen_train1, seqlen_test1, train_mask1, test_mask1 = get_iemocap_data()
-
-    # Define model - using concatenated multimodal features (video, audio, transcript)
-    model = LSTM(input_feature_size=data_train.shape[-1], hidden_size=args.hidden_size, n_classes=args.n_classes,
-                 n_layers=args.n_layers, device=device, fc_dim=args.fc_dim)
-    """model = LSTM1(input_feature_size=data_train.shape[-1], hidden_size=args.hidden_size, n_classes=args.n_classes,
-                 n_layers=args.n_layers, device=device)"""
-
-    # Setting loss function and optimizer
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.alpha)
-    scheduler = StepLR(optimizer, step_size=1, gamma=args.lr_decay)
+    if args.use_own:
+        print("Uses own features")
+        data_train, data_test, train_text, train_audio, test_text, test_audio, train_label, test_label, train_seq_len, test_seq_len, train_mask, test_mask = get_extracted_data()
+    else:
+        print("Uses pre-extracted features")
+        data_train, data_test, train_audio, test_audio, train_text, test_text, video_train, video_test, train_label, test_label, seqlen_train, seqlen_test, train_mask, test_mask = get_iemocap_data()
 
     # Initialize Tensors for test set
-    input_test = torch.Tensor(np.array(data_test)).to(device)
     target_test = torch.Tensor(np.array(test_label)).to(device)
     target_test = target_test.view(-1).long()
 
-    best_epoch = 0
-    best_acc = 0
+    # Define model
+    """model = LSTM(input_feature_size=data_train.shape[-1], hidden_size=args.hidden_size, n_classes=args.n_classes,
+                 n_layers=args.n_layers, device=device, fc_dim=args.fc_dim)"""
+    """model = LSTM_ATTN(input_feature_size=data_train.shape[-1], hidden_size=args.hidden_size, n_classes=args.n_classes,
+                  n_layers=args.n_layers, device=device)"""
+    """model = LSTMSep(input_feature_size_text=train_text.shape[-1],input_feature_size_audio=train_audio.shape[-1], hidden_size=args.hidden_size, n_classes=args.n_classes,
+                    n_layers=args.n_layers, device=device, fc_dim=args.fc_dim)"""
+    model_text = LSTM1(input_feature_size=train_text.shape[-1], hidden_size=args.hidden_size, n_classes=args.n_classes,
+                       n_layers=args.n_layers, device=device)
+    model_audio = LSTM1(input_feature_size=train_audio.shape[-1], hidden_size=args.hidden_size,
+                        n_classes=args.n_classes,
+                        n_layers=args.n_layers, device=device)
+
+    # Setting loss function and optimizer
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model_text.parameters(), lr=args.alpha)
+    scheduler = StepLR(optimizer, step_size=1, gamma=args.lr_decay)
+
+    best_epoch_text = 0
+    best_acc_text = 0
     train_acc = 0
-
     if not args.use_pretrained:
-        for epoch in range(args.n_epochs):
-            batches = gen_bashes(data_train, train_label, train_mask, args.batch_size)
-            for idx, batch in enumerate(batches):
-                model.train()  # Indicate training started
-                b_train_data, b_train_label, b_train_mask = zip(*batch)
-                input_train = torch.Tensor(np.array(b_train_data)).to(device)
-                target_train = torch.Tensor(np.array(b_train_label)).to(device)
-                target_train = target_train.view(-1).long()
+        if not args.use_pretrained_text:
+            print("Now training text classifier...")
+            for epoch in range(args.n_epochs):
+                batches = gen_bashes(train_text, train_label, train_mask, args.batch_size)
+                for idx, batch in enumerate(batches):
+                    model_text.train()  # Indicate training started
+                    b_train_text, b_train_label, b_train_mask = zip(*batch)
+                    input_text = torch.Tensor(np.array(b_train_text)).to(device)
+                    target_train = torch.Tensor(np.array(b_train_label)).to(device)
+                    target_train = target_train.view(-1).long()
+                    # Forward pass
+                    output_text = model_text(input_text)
+                    loss = criterion(output_text, target_train)
 
-                # Forward pass
-                output = model(input_train)
-                loss = criterion(output, target_train)
+                    # Backward and optimize
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+                    scheduler.step()
 
-                # Backward and optimize
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-                scheduler.step()
+                    # Calculate the unweighted accuracy of train data
+                    b_train_mask = np.asarray(b_train_mask).reshape(-1)
+                    train_acc, f1_train, _, _ = report_acc(output_text, target_train, b_train_mask)
 
-                # Calculate the unweighted accuracy of train data
-                b_train_mask = np.asarray(b_train_mask).reshape(-1)
-                train_acc, f1_train, _, _ = report_acc(output, target_train, b_train_mask)
+                    if (idx + 1) % args.batch_size == 0:
+                        print(f'Epoch [{epoch + 1}/{args.n_epochs}], Loss: {loss.item():.4f}', end=" ")
 
-                if (idx + 1) % args.batch_size == 0:
-                    print(f'Epoch [{epoch + 1}/{args.n_epochs}], Loss: {loss.item():.4f}', end=" ")
+                # Evaluation after each epoch on test set
+                model_text.eval()
+                with torch.no_grad():
+                    output_test_text = model_text(torch.Tensor(np.array(test_text)).to(device))
+                    acc_test_text, f1_test_text, conf_matrix_text, classify_report_text = report_acc(output_test_text, target_test, test_mask)
+                    print(f"Accuracy (test): {acc_test_text} (text_lstm)")
 
-            # Evaluation after each epoch on test set
-            model.eval()
-            with torch.no_grad():
-                output_test = model(input_test).to(device)
-                acc_test, f1_test, conf_matrix, classify_report = report_acc(output_test, target_test, test_mask)
-                print(f"Accuracy (test): {acc_test}")
+                if acc_test_text > best_acc_text:
+                    best_acc_text = acc_test_text
+                    best_epoch_text = epoch
+                    if best_acc_text > args.save_model_threshold_text:
+                        torch.save({
+                                    'best_epoch': best_epoch_text,
+                                    'model_state_dict': model_text.state_dict(),
+                                    'optimizer_state_dict': optimizer.state_dict()
+                                    },
+                                   "saved_models/text_lstm/" + "model_acc_" + "{:0.2f}".format(best_acc_text) + ".t")
 
-            if acc_test > best_acc:
-                best_acc = acc_test
-                best_epoch = epoch
-                if best_acc > args.save_model_threshold:
-                    torch.save({
-                                'best_epoch': best_epoch,
-                                'model_state_dict': model.state_dict(),
-                                'optimizer_state_dict': optimizer.state_dict()
-                                },
-                               "saved_models/" + "model_acc_" + "{:0.2f}".format(best_acc) + "." + str(args.modalities))
+            print("Text LSTM:")
+            print('Best Epoch: {}/{}.............'.format(best_epoch_text, args.n_epochs), end=" ")
+            print("Train accuracy: {:.2f}% Test accuracy: {:.2f}%".format(train_acc, best_acc_text))
+            print(classify_report_text)
 
+        if not args.use_pretrained_audio:
+            # Setting loss function and optimizer
+            criterion = nn.CrossEntropyLoss()
+            optimizer = torch.optim.Adam(model_audio.parameters(), lr=args.alpha)
+            scheduler = StepLR(optimizer, step_size=1, gamma=args.lr_decay)
 
-        print('Best Epoch: {}/{}.............'.format(best_epoch, args.n_epochs), end=" ")
-        print("Train accuracy: {:.2f}% Test accuracy: {:.2f}%".format(train_acc, best_acc))
-        print(classify_report)
+            best_epoch_audio = 0
+            best_acc_audio = 0
+            train_acc = 0
 
+            print("\nNow training audio classifier...")
+            for epoch in range(args.n_epochs):
+                batches = gen_bashes(train_audio, train_label, train_mask, args.batch_size)
+                for idx, batch in enumerate(batches):
+                    model_audio.train()  # Indicate training started
+                    b_train_audio, b_train_label, b_train_mask = zip(*batch)
+                    input_audio = torch.Tensor(np.array(b_train_audio)).to(device)
+                    target_train = torch.Tensor(np.array(b_train_label)).to(device)
+                    target_train = target_train.view(-1).long()
+                    # Forward pass
+                    output_audio = model_audio(input_audio)
+                    loss = criterion(output_audio, target_train)
+
+                    # Backward and optimize
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+                    scheduler.step()
+
+                    # Calculate the unweighted accuracy of train data
+                    b_train_mask = np.asarray(b_train_mask).reshape(-1)
+                    train_acc, f1_train, _, _ = report_acc(output_audio, target_train, b_train_mask)
+
+                    if (idx + 1) % args.batch_size == 0:
+                        print(f'Epoch [{epoch + 1}/{args.n_epochs}], Loss: {loss.item():.4f}', end=" ")
+
+                # Evaluation after each epoch on test set
+                model_audio.eval()
+                with torch.no_grad():
+                    output_test_audio = model_audio(torch.Tensor(np.array(test_audio)).to(device))
+                    acc_test_audio, f1_test_audio, conf_matrix_audio, classify_report_audio = report_acc(output_test_audio,
+                                                                                                     target_test,
+                                                                                                     test_mask)
+                    print(f"Accuracy (test): {acc_test_audio} (audio_lstm)")
+
+                if acc_test_audio > best_acc_audio:
+                    best_acc_audio = acc_test_audio
+                    best_epoch_audio = epoch
+                    if best_acc_audio > args.save_model_threshold_audio:
+                        torch.save({
+                            'best_epoch': best_epoch_audio,
+                            'model_state_dict': model_audio.state_dict(),
+                            'optimizer_state_dict': optimizer.state_dict()
+                        },
+                            "saved_models/audio_lstm/" + "model_acc_" + "{:0.2f}".format(best_acc_audio) + ".a")
+            print("Audio LSTM:")
+            print('Best Epoch: {}/{}.............'.format(best_epoch_audio, args.n_epochs), end=" ")
+            print("Train accuracy: {:.2f}% Test accuracy: {:.2f}%".format(train_acc, best_acc_audio))
+            print(classify_report_audio)
     else:
-        model_info = torch.load("saved_models/model_acc_64.91.t")
-        model.load_state_dict(model_info['model_state_dict'])
-        model.eval()
+        text_model_info = torch.load("saved_models/text_lstm/model_acc_61.61.t")
+        model_text.load_state_dict(text_model_info['model_state_dict'])
+        model_text.eval()
         with torch.no_grad():
-            output_test = model(input_test).to(device)
+            output_test = model_text(torch.Tensor(np.array(test_text)).to(device))
             acc_test, f1_test, conf_matrix, classify_report = report_acc(output_test, target_test, test_mask)
 
-            print("Accuracy of model loaded: {:.2f}%".format(acc_test))
+            print("Accuracy of text model loaded: {:.2f}%".format(acc_test))
             print(classify_report)
 
+        audio_model_info = torch.load("saved_models/audio_lstm/model_acc_39.13.a")
+        model_audio.load_state_dict(audio_model_info['model_state_dict'])
+        model_audio.eval()
+        with torch.no_grad():
+            output_test = model_audio(torch.Tensor(np.array(test_audio)).to(device))
+            acc_test, f1_test, conf_matrix, classify_report = report_acc(output_test, target_test, test_mask)
 
-
-
-
-
-
-
+            print("Accuracy of audio model loaded: {:.2f}%".format(acc_test))
+            print(classify_report)
 
 
 if __name__ == '__main__':

@@ -36,6 +36,20 @@ class LSTM(nn.Module):
         return out
 
 
+class LSTMSep(nn.Module):
+    def __init__(self, input_feature_size_text, input_feature_size_audio, hidden_size, n_classes, fc_dim, n_layers, device):
+        super(LSTMSep, self).__init__()
+
+        self.text_lstm = LSTM(input_feature_size_text, hidden_size, n_classes, fc_dim, n_layers, device)
+        self.audio_lstm = LSTM(input_feature_size_audio, hidden_size, n_classes, fc_dim, n_layers, device)
+
+    def forward(self, text, audio):
+        text_out = self.text_lstm(text)
+        audio_out = self.audio_lstm(audio)
+
+        return text_out, audio_out
+
+
 class LSTM1(nn.Module):
     def __init__(self, input_feature_size, hidden_size, n_classes, n_layers, device):
         super(LSTM1, self).__init__()
@@ -60,4 +74,42 @@ class LSTM1(nn.Module):
         out = self.fc(torch.sigmoid(out))
         return out
 
-            
+
+class LSTM_ATTN(nn.Module):
+    def __init__(self, input_feature_size, hidden_size, n_classes, device,
+                 n_layers=1, use_bidirectional=False, use_dropout=False):
+        super(LSTM_ATTN, self).__init__()
+        self.input_feature_size = input_feature_size
+        self.hidden_size = hidden_size
+        self.n_layers = n_layers
+        self.n_classes = n_classes
+        self.device = device
+
+        self.lstm = nn.LSTM(input_feature_size, hidden_size, n_layers,
+                           bidirectional=use_bidirectional,
+                           dropout=0.5 if use_dropout else 0., batch_first=True)
+        self.fc = nn.Linear(hidden_size, n_classes)
+        self.dropout = nn.Dropout(0.5 if use_dropout else 0.)
+
+    def attention(self, lstm_output, final_state):
+        merged_state = torch.cat([s for s in final_state], 1)
+        merged_state = merged_state.squeeze(0).unsqueeze(2)
+        weights = torch.bmm(lstm_output, merged_state)
+        weights = F.softmax(weights.squeeze(2), dim=1).unsqueeze(2)
+        print(weights.size())
+        print(lstm_output.permute(0,2,1).size())
+        return torch.bmm(lstm_output, weights)
+
+    def forward(self, x):
+        # x -> (batch_size, seq_length, feature_size)
+        h0 = torch.zeros(self.n_layers, x.size(0), self.hidden_size).to(self.device)
+        c0 = torch.zeros(self.n_layers, x.size(0), self.hidden_size).to(self.device)
+        output, (hidden, _) = self.lstm(x, (h0, c0))
+
+
+        # attn_output = self.attention_net(output, hidden)
+        attn_output = self.attention(output, hidden)
+        print(attn_output.size())
+        attn_output = attn_output.contiguous().view(-1, self.hidden_size)
+
+        return self.fc(attn_output.squeeze(0))

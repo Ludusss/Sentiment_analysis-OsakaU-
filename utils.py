@@ -44,6 +44,25 @@ def get_extracted_data():
     f = open("extracted_data/combined/IEMOCAP_features_raw.pkl", "rb")
     utterance_ids, text_features, audio_features, labels, train_set, test_set = pickle.load(f)
 
+    """f = open("data/IEMOCAP_features_raw.pkl", "rb")
+    if sys.version_info[0] == 2:
+        videoIDs, videoSpeakers, videoLabels, videoText, videoAudio, videoVisual, videoSentence, trainVid, testVid = pickle.load(
+            f)
+    else:
+        u = pickle._Unpickler(f)
+        u.encoding = 'latin1'
+        videoIDs, videoSpeakers, videoLabels, videoText, videoAudio, videoVisual, videoSentence, trainVid, testVid = u.load()
+
+    for video in videoIDs:
+        if len(videoLabels[video]) == len(labels[video]):
+            continue
+        else:
+            print(video)
+            print(videoIDs[video])
+            print(utterance_ids[video])
+            print(videoLabels[video])
+            print(labels[video])"""
+
     for train_dialog_id in train_set.keys():
         train_seq_len.append(len(utterance_ids[train_dialog_id]))
     for test_dialog_id in test_set.keys():
@@ -222,8 +241,8 @@ def get_iemocap_data():
                 test_label[i][j] = 1
                 # test_mask[i][j]=0
 
-    train_data = np.concatenate((train_audio, train_visual, train_text), axis=-1)
-    test_data = np.concatenate((test_audio, test_visual, test_text), axis=-1)
+    train_data = np.concatenate((train_audio, train_text), axis=-1)
+    test_data = np.concatenate((test_audio, test_text), axis=-1)
 
     test_mask = test_mask.reshape(3410)
 
