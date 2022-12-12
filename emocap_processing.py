@@ -12,6 +12,7 @@ import librosa.display
 import random
 import sklearn
 import soundfile as sf
+from sentence_transformers import SentenceTransformer
 
 SAMP_RATE = 22050
 
@@ -24,6 +25,7 @@ def extract_iemocap_info():
         info_line = re.compile(r'\[.+\]\n', re.IGNORECASE)
 
         start_times, end_times, wav_file_names, emotions, vals, acts, doms = [], [], [], [], [], [], []
+        df_iemocap = pd.DataFrame(columns=['wav_file', 'start_time', 'end_time', 'emotion', 'val', 'act', 'dom'])
 
         print("Extraction info from IEMOCAP...")
         for sess in range(1, 6):
@@ -47,7 +49,7 @@ def extract_iemocap_info():
                     acts.append(act)
                     doms.append(dom)
 
-        df_iemocap = pd.DataFrame(columns=['start_time', 'end_time', 'wav_file', 'emotion', 'val', 'act', 'dom'])
+
 
         df_iemocap['start_time'] = start_times
         df_iemocap['end_time'] = end_times
@@ -63,11 +65,12 @@ def extract_iemocap_info():
         return df_iemocap
 
 
-def build_audio_vector():
-    iemocap_info_df = pd.read_csv('extracted_data/df_iemocap.csv')
+def build_audio_vector(iemocap_info_df):
     audio_vectors = {}
+    count = 0
     for sess in range(1, 6):
         if os.path.isfile("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/audio_vectors/audio_vectors_{}.pkl".format(sess)):
+            count += 1
             continue
         else:
             wav_file_path = 'raw_data/IEMOCAP_full_release/Session{}/dialog/wav/'.format(sess)
@@ -87,13 +90,15 @@ def build_audio_vector():
                     print('An exception occured for {}'.format(orig_wav_file))
             with open('extracted_data/audio_vectors/audio_vectors_{}.pkl'.format(sess), 'wb') as f:
                 pickle.dump(audio_vectors, f)
+    if count == 5:
+        print("Loaded audio_vectors")
 
 
-def extract_audio_features():
+def extract_audio_features(iemocap_info_df):
     if os.path.isfile("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/audio_features.csv"):
+        print("Loaded audio features")
         return pd.read_csv("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/audio_features.csv")
     else:
-        iemocap_info_df = pd.read_csv('extracted_data/df_iemocap.csv')
         emotion_dict = {'ang': 0,
                         'hap': 1,
                         'exc': 2,
@@ -117,10 +122,12 @@ def extract_audio_features():
                     label = emotion_dict[row['emotion']]
                     y = audio_vectors[wav_file_name]
 
-
-                    #time.sleep(1000)
-
                     feature_list = [wav_file_name, label]  # wav_file, label
+
+                    # Extract F0-Score
+                    f0, _, _ = librosa.pyin(y, fmin=librosa.note_to_hz('C0'),
+                                            fmax=librosa.note_to_hz('C5'))
+                    feature_list.append(np.nanmean(f0))
 
                     # Extract mfcc
                     mfcc = librosa.feature.mfcc(y=y, sr=SAMP_RATE)
@@ -131,11 +138,8 @@ def extract_audio_features():
                     chroma_cq = librosa.feature.chroma_cqt(y=y, sr=SAMP_RATE,  fmin=librosa.note_to_hz('C2'), bins_per_octave=24)
                     feature_list.append(np.mean(chroma_cq, axis=1))
 
-                    # Extract F0-Score
-                    f0, _, _ = librosa.pyin(y, fmin=librosa.note_to_hz('C0'),
-                                            fmax=librosa.note_to_hz('C5'))
 
-                    feature_list.append(np.nanmean(f0))
+
 
                     df_features = pd.concat([pd.DataFrame(feature_list, index=columns).transpose(), df_features])
 
@@ -147,35 +151,48 @@ def extract_audio_features():
         return df_features
 
 
-def extract_text_features():
-    useful_regex = re.compile(r'^(\w+)', re.IGNORECASE)
+def extract_text_features(iemocap_info_df):
+    if os.path.isfile("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/text_features.csv"):
+        print("Loaded text features")
+        return pd.read_csv("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/text_features.csv")
+    else:
+        useful_regex = re.compile(r'^(\w+)', re.IGNORECASE)
 
-    file2transcriptions = {}
+        file2transcriptions = {}
+        columns = ['text_file', 'label', 'text', 'b_features']
+        df_features = pd.DataFrame(columns=columns)
+        model = SentenceTransformer('all-mpnet-base-v2')  # Load s-bert model for text feature extractions
+        for sess in tqdm(range(1, 6)):
+            transcripts_path = 'raw_data/IEMOCAP_full_release/Session{}/dialog/transcriptions/'.format(sess)
+            transcript_files = os.listdir(transcripts_path)
+            for f in tqdm(transcript_files):
+                with open('{}{}'.format(transcripts_path, f), 'r') as f:
+                    all_lines = f.readlines()
+                for l in all_lines:
+                    transcript_code = useful_regex.match(l).group()
+                    row_info = iemocap_info_df.loc[iemocap_info_df['wav_file'] == transcript_code]
 
-    for sess in range(1, 6):
-        transcripts_path = 'raw_data/IEMOCAP_full_release/Session{}/dialog/transcriptions/'.format(sess)
-        transcript_files = os.listdir(transcripts_path)
-        for f in transcript_files:
-            with open('{}{}'.format(transcripts_path, f), 'r') as f:
-                all_lines = f.readlines()
+                    if not row_info.empty:
+                        transcription = l.split(':')[-1].strip()
+                        new_row = pd.Series({columns[0]: transcript_code,  columns[1]: row_info.loc[row_info.index[0], "emotion"],
+                                             columns[2]: transcription, columns[3]: model.encode(transcription)})
+                        df_features = pd.concat([df_features, new_row.to_frame().T], ignore_index=True)
 
-            for l in all_lines:
-                audio_code = useful_regex.match(l).group()
-                transcription = l.split(':')[-1].strip()
-                # assuming that all the keys would be unique and hence no `try`
-                file2transcriptions[audio_code] = transcription
-    # save dict
-    with open('data/t2e/audiocode2text.pkl', 'wb') as file:
-        pickle.dump(file2transcriptions, file)
+        df_features.to_csv('extracted_data/text_features.csv', index=False)
+
+        return df_features
+
 
 def main():
     iemocap_df = extract_iemocap_info()
-    print(iemocap_df.tail())
+    print(iemocap_df.head())
     print("Number of samples extracted: " + str(len(iemocap_df.index)))
-    build_audio_vector()
-    audio_features = extract_audio_features()
-    print(audio_features.tail())
-    #extract_text_features()
+    build_audio_vector(iemocap_df)
+    audio_features = extract_audio_features(iemocap_df)
+    text_features = extract_text_features(iemocap_df)
+    print(audio_features.head())
+    print(text_features.head())
+
 
 if __name__ == '__main__':
     print("Starting")
