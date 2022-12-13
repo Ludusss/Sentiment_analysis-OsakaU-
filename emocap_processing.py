@@ -88,28 +88,33 @@ def extract_iemocap_info():
 def build_audio_vector(iemocap_info_df):
     audio_vectors = {}
     count = 0
-    for sess in range(1, 6):
-        if os.path.isfile("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/audio_vectors/audio_vectors_{}.pkl".format(sess)):
-            count += 1
-            continue
-        else:
-            wav_file_path = 'raw_data/IEMOCAP_full_release/Session{}/dialog/wav/'.format(sess)
-            orig_wav_files = os.listdir(wav_file_path)
-            for orig_wav_file in tqdm(orig_wav_files):
-                try:
-                    orig_wav_vector, _sr = librosa.load(wav_file_path + orig_wav_file, sr=SAMP_RATE)
-                    orig_wav_file, file_format = orig_wav_file.split('.')
-                    for index, row in iemocap_info_df[iemocap_info_df['wav_file'].str.contains(orig_wav_file)].iterrows():
-                        start_time, end_time, truncated_wav_file_name, emotion, val, act, dom = row['start_time'], row[
-                            'end_time'], row['wav_file'], row['emotion'], row['val'], row['act'], row['dom']
-                        start_frame = math.floor(start_time * SAMP_RATE)
-                        end_frame = math.floor(end_time * SAMP_RATE)
-                        truncated_wav_vector = orig_wav_vector[start_frame:end_frame + 1]
-                        audio_vectors[truncated_wav_file_name] = truncated_wav_vector
-                except:
-                    print('An exception occured for {}'.format(orig_wav_file))
-            with open('extracted_data/audio_vectors/audio_vectors_{}.pkl'.format(sess), 'wb') as f:
-                pickle.dump(audio_vectors, f)
+    for sess in tqdm(range(1, 6)):
+        if platform == "darwin":
+            if os.path.isfile("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/audio_vectors/audio_vectors_{}.pkl".format(sess)):
+                count += 1
+                continue
+        elif platform == "win32":
+            if os.path.isfile("C:/Projects/Sentiment_analysis-OsakaU-/extracted_data/audio_vectors/audio_vectors_{}.pkl".format(sess)):
+                count += 1
+                continue
+
+        wav_file_path = 'raw_data/IEMOCAP_full_release/Session{}/dialog/wav/'.format(sess)
+        orig_wav_files = os.listdir(wav_file_path)
+        for orig_wav_file in tqdm(orig_wav_files):
+            try:
+                orig_wav_vector, _sr = librosa.load(wav_file_path + orig_wav_file, sr=SAMP_RATE)
+                orig_wav_file, file_format = orig_wav_file.split('.')
+                for index, row in iemocap_info_df[iemocap_info_df['utterance_id'].str.contains(orig_wav_file)].iterrows():
+                    start_time, end_time, truncated_wav_file_name, emotion, val, act, dom = row['start_time'], row[
+                        'end_time'], row['utterance_id'], row['emotion'], row['val'], row['act'], row['dom']
+                    start_frame = math.floor(start_time * SAMP_RATE)
+                    end_frame = math.floor(end_time * SAMP_RATE)
+                    truncated_wav_vector = orig_wav_vector[start_frame:end_frame + 1]
+                    audio_vectors[truncated_wav_file_name] = truncated_wav_vector
+            except:
+                print('An exception occured for {}'.format(orig_wav_file))
+        with open('extracted_data/audio_vectors/audio_vectors_{}.pkl'.format(sess), 'wb') as f:
+            pickle.dump(audio_vectors, f)
     if count == 5:
         print("Loaded audio_vectors")
 
