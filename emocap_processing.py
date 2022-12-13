@@ -13,56 +13,76 @@ import random
 import sklearn
 import soundfile as sf
 from sentence_transformers import SentenceTransformer
+from sys import platform
 
 SAMP_RATE = 22050
 
 
 def extract_iemocap_info():
-    if os.path.isfile("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/df_iemocap.csv"):
-        print("Loaded iemocap_info")
-        return pd.read_csv("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/df_iemocap.csv")
-    else:
-        info_line = re.compile(r'\[.+\]\n', re.IGNORECASE)
+    if platform == "darwin":
+        if os.path.isfile("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/df_iemocap.csv"):
+            print("Loaded iemocap_info")
+            return pd.read_csv("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/df_iemocap.csv")
+    elif platform == "win32":
+        if os.path.isfile("C:/Projects/Sentiment_analysis-OsakaU-/extracted_data/df_iemocap.csv"):
+            print("Loaded iemocap_info")
+            return pd.read_csv("C:/Projects/Sentiment_analysis-OsakaU-/extracted_data/df_iemocap.csv")
 
-        start_times, end_times, wav_file_names, emotions, vals, acts, doms = [], [], [], [], [], [], []
-        df_iemocap = pd.DataFrame(columns=['wav_file', 'start_time', 'end_time', 'emotion', 'val', 'act', 'dom'])
+    info_line = re.compile(r'\[.+\]\n', re.IGNORECASE)
 
-        print("Extraction info from IEMOCAP...")
-        for sess in range(1, 6):
-            emo_evaluation_dir = 'raw_data/IEMOCAP_full_release/Session{}/dialog/EmoEvaluation/'.format(sess)
-            evaluation_files = [l for l in os.listdir(emo_evaluation_dir) if 'Ses' in l]
-            for file in evaluation_files:
-                with open(emo_evaluation_dir + file) as f:
-                    content = f.read()
-                info_lines = re.findall(info_line, content)
-                for line in info_lines[1:]:  # the first line is a header
-                    start_end_time, wav_file_name, emotion, val_act_dom = line.strip().split('\t')
-                    start_time, end_time = start_end_time[1:-1].split('-')
-                    val, act, dom = val_act_dom[1:-1].split(',')
-                    val, act, dom = float(val), float(act), float(dom)
-                    start_time, end_time = float(start_time), float(end_time)
-                    start_times.append(start_time)
-                    end_times.append(end_time)
-                    wav_file_names.append(wav_file_name)
-                    emotions.append(emotion)
-                    vals.append(val)
-                    acts.append(act)
-                    doms.append(dom)
+    start_times, end_times, utterance_ids, emotions, vals, acts, doms = [], [], [], [], [], [], []
+    df_iemocap = pd.DataFrame(columns=['utterance_id', 'start_time', 'end_time', 'emotion', 'val', 'act', 'dom'])
+    ordered_utterance_ids = []
+
+    print("Extraction info from IEMOCAP...")
+    for sess in range(1, 6):
+        emo_transcription_dir = 'raw_data/IEMOCAP_full_release/Session{}/dialog/transcriptions/'.format(sess)
+        transcription_files = [l for l in os.listdir(emo_transcription_dir) if 'Ses' in l]
+        for file in transcription_files:
+            with open(emo_transcription_dir + file) as f:
+                lines = f.readlines()
+            for line in lines:
+                if not line.startswith("Ses") or "XX" in line:
+                    continue
+                ordered_utterance_ids.append(line.split(" ")[0])
+    for sess in range(1, 6):
+        emo_evaluation_dir = 'raw_data/IEMOCAP_full_release/Session{}/dialog/EmoEvaluation/'.format(sess)
+        evaluation_files = [l for l in os.listdir(emo_evaluation_dir) if 'Ses' in l]
+        for file in evaluation_files:
+            with open(emo_evaluation_dir + file) as f:
+                content = f.read()
+            info_lines = re.findall(info_line, content)
+            for line in info_lines[1:]:  # the first line is a header
+                start_end_time, utterance_id, emotion, val_act_dom = line.strip().split('\t')
+                start_time, end_time = start_end_time[1:-1].split('-')
+                val, act, dom = val_act_dom[1:-1].split(',')
+                val, act, dom = float(val), float(act), float(dom)
+                start_time, end_time = float(start_time), float(end_time)
+                start_times.append(start_time)
+                end_times.append(end_time)
+                utterance_ids.append(utterance_id)
+                emotions.append(emotion)
+                vals.append(val)
+                acts.append(act)
+                doms.append(dom)
 
 
 
-        df_iemocap['start_time'] = start_times
-        df_iemocap['end_time'] = end_times
-        df_iemocap['wav_file'] = wav_file_names
-        df_iemocap['emotion'] = emotions
-        df_iemocap['val'] = vals
-        df_iemocap['act'] = acts
-        df_iemocap['dom'] = doms
+    df_iemocap['start_time'] = start_times
+    df_iemocap['end_time'] = end_times
+    df_iemocap['utterance_id'] = utterance_ids
+    df_iemocap['emotion'] = emotions
+    df_iemocap['val'] = vals
+    df_iemocap['act'] = acts
+    df_iemocap['dom'] = doms
 
-        df_iemocap.to_csv('extracted_data/df_iemocap.csv', index=False)
+    df_iemocap = df_iemocap.set_index('utterance_id')
+    df_iemocap = df_iemocap.loc[ordered_utterance_ids]
+    df_iemocap = df_iemocap.reset_index()
+    df_iemocap.to_csv('extracted_data/df_iemocap.csv', index=False)
 
-        print("Done extracting info")
-        return df_iemocap
+    print("Done extracting info")
+    return df_iemocap
 
 
 def build_audio_vector(iemocap_info_df):
@@ -185,7 +205,7 @@ def extract_text_features(iemocap_info_df):
 
 def main():
     iemocap_df = extract_iemocap_info()
-    print(iemocap_df.head())
+    print(iemocap_df.tail())
     print("Number of samples extracted: " + str(len(iemocap_df.index)))
     build_audio_vector(iemocap_df)
     audio_features = extract_audio_features(iemocap_df)
