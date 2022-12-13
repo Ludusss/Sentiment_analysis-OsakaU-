@@ -120,71 +120,78 @@ def build_audio_vector(iemocap_info_df):
 
 
 def extract_audio_features(iemocap_info_df):
-    if os.path.isfile("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/audio_features.csv"):
-        print("Loaded audio features")
-        return pd.read_csv("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/audio_features.csv")
-    else:
-        emotion_dict = {'ang': 0,
-                        'hap': 1,
-                        'exc': 2,
-                        'sad': 3,
-                        'fru': 4,
-                        'fea': 5,
-                        'sur': 6,
-                        'neu': 7,
-                        'dis': 8,
-                        'xxx': 9,
-                        'oth': 9}
+    if platform == "darwin":
+        if os.path.isfile("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/audio_features.csv"):
+            print("Loaded audio features")
+            return pd.read_csv("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/audio_features.csv")
+    elif platform == "win32":
+        if os.path.isfile("C:/Projects/Sentiment_analysis-OsakaU-/extracted_data/audio_features.csv"):
+            print("Loaded audio features")
+            return pd.read_csv("C:/Projects/Sentiment_analysis-OsakaU-/extracted_data/audio_features.csv")
+    emotion_dict = {'ang': 0,
+                    'hap': 1,
+                    'exc': 2,
+                    'sad': 3,
+                    'fru': 4,
+                    'fea': 5,
+                    'sur': 6,
+                    'neu': 7,
+                    'dis': 8,
+                    'xxx': 9,
+                    'oth': 9}
 
-        audio_vectors_path = 'extracted_data/audio_vectors/audio_vectors_'
-        columns = ['wav_file', 'label', 'mfcc', 'cqt', 'f0']
-        df_features = pd.DataFrame(columns=columns)
-        for sess in (range(1, 6)):
-            audio_vectors = pickle.load(open('{}{}.pkl'.format(audio_vectors_path, sess), 'rb'))
-            for index, row in tqdm(iemocap_info_df[iemocap_info_df['wav_file'].str.contains('Ses0{}'.format(sess))].iterrows()):
-                try:
-                    wav_file_name = row['wav_file']
-                    label = emotion_dict[row['emotion']]
-                    y = audio_vectors[wav_file_name]
+    audio_vectors_path = 'extracted_data/audio_vectors/audio_vectors_'
+    columns = ['utterance_id', 'label', 'mfcc', 'cqt', 'f0']
+    df_features = pd.DataFrame(columns=columns)
+    for sess in range(1, 6):
+        audio_vectors = pickle.load(open('{}{}.pkl'.format(audio_vectors_path, sess), 'rb'))
+        for index, row in tqdm(iemocap_info_df[iemocap_info_df['utterance_id'].str.contains('Ses0{}'.format(sess))].iterrows()):
+            try:
+                utterance_id = row['utterance_id']
+                label = emotion_dict[row['emotion']]
+                y = audio_vectors[utterance_id]
 
-                    feature_list = [wav_file_name, label]  # wav_file, label
+                feature_list = [utterance_id, label]
 
-                    # Extract F0-Score
-                    f0, _, _ = librosa.pyin(y, fmin=librosa.note_to_hz('C0'),
-                                            fmax=librosa.note_to_hz('C5'))
-                    feature_list.append(np.nanmean(f0))
+                # Extract F0-Score
+                f0, _, _ = librosa.pyin(y, fmin=librosa.note_to_hz('C0'),
+                                        fmax=librosa.note_to_hz('C5'))
 
-                    # Extract mfcc
-                    mfcc = librosa.feature.mfcc(y=y, sr=SAMP_RATE)
-                    feature_list.append(np.mean(mfcc, axis=1))
+                if np.isnan(f0).all():     # If pitch extraction fails discard utterance
+                    continue
 
+                feature_list.append(np.nanmean(f0))
 
-                    # Extract Constant-Q chromagram
-                    chroma_cq = librosa.feature.chroma_cqt(y=y, sr=SAMP_RATE,  fmin=librosa.note_to_hz('C2'), bins_per_octave=24)
-                    feature_list.append(np.mean(chroma_cq, axis=1))
+                # Extract mfcc
+                mfcc = librosa.feature.mfcc(y=y, sr=SAMP_RATE)
+                feature_list.append(np.mean(mfcc, axis=1))
 
+                # Extract Constant-Q chromagram
+                chroma_cq = librosa.feature.chroma_cqt(y=y, sr=SAMP_RATE,  fmin=librosa.note_to_hz('C2'), bins_per_octave=24)
+                feature_list.append(np.mean(chroma_cq, axis=1))
 
+                df_features = pd.concat([df_features, pd.DataFrame(feature_list, index=columns).transpose()])
 
+            except:
+                print('Some exception occured')
 
-                    df_features = pd.concat([pd.DataFrame(feature_list, index=columns).transpose(), df_features])
+    df_features.to_csv('extracted_data/audio_features.csv', index=False)
 
-                except:
-                    print('Some exception occured')
-
-        df_features.to_csv('extracted_data/audio_features.csv', index=False)
-
-        return df_features
+    return df_features
 
 
 def extract_text_features(iemocap_info_df):
-    if os.path.isfile("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/text_features.csv"):
-        print("Loaded text features")
-        return pd.read_csv("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/text_features.csv")
-    else:
-        useful_regex = re.compile(r'^(\w+)', re.IGNORECASE)
+    if platform == "darwin":
+        if os.path.isfile("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/text_features.csv"):
+            print("Loaded text features")
+            return pd.read_csv("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/text_features.csv")
+    elif platform == "win32":
+        if os.path.isfile("C:/Projects/Sentiment_analysis-OsakaU-/extracted_data/text_features.csv"):
+            print("Loaded text features")
+            return pd.read_csv("C:/Projects/Sentiment_analysis-OsakaU-/extracted_data/text_features.csv")
 
-        file2transcriptions = {}
-        columns = ['text_file', 'label', 'text', 'b_features']
+        useful_regex = re.compile(r'^(\w+)', re.IGNORECASE)
+        columns = ['utterance_id', 'label', 'text', 'b_features']
         df_features = pd.DataFrame(columns=columns)
         model = SentenceTransformer('all-mpnet-base-v2')  # Load s-bert model for text feature extractions
         for sess in tqdm(range(1, 6)):
@@ -195,7 +202,7 @@ def extract_text_features(iemocap_info_df):
                     all_lines = f.readlines()
                 for l in all_lines:
                     transcript_code = useful_regex.match(l).group()
-                    row_info = iemocap_info_df.loc[iemocap_info_df['wav_file'] == transcript_code]
+                    row_info = iemocap_info_df.loc[iemocap_info_df['utterance_id'] == transcript_code]
 
                     if not row_info.empty:
                         transcription = l.split(':')[-1].strip()
@@ -210,13 +217,13 @@ def extract_text_features(iemocap_info_df):
 
 def main():
     iemocap_df = extract_iemocap_info()
-    print(iemocap_df.tail())
+    print(iemocap_df.head())
     print("Number of samples extracted: " + str(len(iemocap_df.index)))
     build_audio_vector(iemocap_df)
     audio_features = extract_audio_features(iemocap_df)
     text_features = extract_text_features(iemocap_df)
-    print(audio_features.head())
-    print(text_features.head())
+    print("Audio features:\n" + str(audio_features.head()))
+    print("Text features:\n" + str(text_features.head()))
 
 
 if __name__ == '__main__':
