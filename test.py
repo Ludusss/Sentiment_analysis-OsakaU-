@@ -5,8 +5,6 @@ import pandas as pd
 import torch
 from torch import nn
 from torch.optim.lr_scheduler import StepLR
-
-from process_mosei import *
 from utils import *
 from model import LSTM, LSTM1, LSTM_ATTN, LSTMSep
 import torch.utils.data
@@ -59,7 +57,7 @@ def main():
         data_train, data_test, train_text, train_audio, test_text, test_audio, train_label, test_label, train_seq_len, test_seq_len, train_mask, test_mask = get_extracted_data()
     else:
         print("Uses pre-extracted features")
-        data_train, data_test, train_audio, test_audio, train_text, test_text, video_train, video_test, train_label, test_label, seqlen_train, seqlen_test, train_mask, test_mask = get_iemocap_data()
+        process_features()
 
     # Initialize Tensors for test set
     target_test = torch.Tensor(np.array(test_label)).to(device)
@@ -107,7 +105,7 @@ def main():
                     optimizer.step()
                     scheduler.step()
 
-                    # Calculate the unweighted accuracy of train data
+                    # Calculate the unweighted accuracy of train pre_extracted_features
                     b_train_mask = np.asarray(b_train_mask).reshape(-1)
                     train_acc, f1_train, _, _ = report_acc(output_text, target_train, b_train_mask)
 
@@ -166,7 +164,7 @@ def main():
                     optimizer.step()
                     scheduler.step()
 
-                    # Calculate the unweighted accuracy of train data
+                    # Calculate the unweighted accuracy of train pre_extracted_features
                     b_train_mask = np.asarray(b_train_mask).reshape(-1)
                     train_acc, f1_train, _, _ = report_acc(output_audio, target_train, b_train_mask)
 

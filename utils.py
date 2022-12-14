@@ -1,10 +1,13 @@
 import random
+import time
 import numpy as np
 import pickle
 import torch
 import sys
 from sklearn import metrics
 from operator import eq
+import pandas as pd
+import itertools
 
 
 def report_acc(output, target, mask):
@@ -30,6 +33,113 @@ def gen_bashes(features, labels, mask, batch_size):
         yield zip(features[indices], labels[indices], mask[indices])
 
 
+def process_features():
+    """labels = {"neg": 0,
+              "neu": 1,
+              "pos": 2}"""
+
+    text_features_df = pd.read_csv("extracted_data/text_features.csv")
+    audio_features_df = pd.read_csv("extracted_data/audio_features.csv")
+    audio_features = []
+    audio_labels = []
+
+    # Remove unused labels
+    text_features_df = text_features_df[text_features_df.label != "xxx"]
+    text_features_df = text_features_df[text_features_df.label != "fea"]
+    text_features_df = text_features_df[text_features_df.label != "oth"]
+    text_features_df = text_features_df[text_features_df.label != "dis"]
+    audio_features_df = audio_features_df[audio_features_df.label != 9]
+    audio_features_df = audio_features_df[audio_features_df.label != 8]
+    audio_features_df = audio_features_df[audio_features_df.label != 6]
+    audio_features_df = audio_features_df[audio_features_df.label != 5]
+
+    # Reduce classes via concatenation
+    text_features_df['label'] = text_features_df['label'].replace(['fru', 'ang', 'sad', 'neu', 'exc', 'hap', 'sur'], [0, 0, 0, 1, 2, 2, 2])
+    audio_features_df['label'] = audio_features_df['label'].replace([3, 4, 7, 1, 6],
+                                                            [0, 0, 1, 2, 2])
+    # Get max sequence length
+    batch = 0
+    prev_batch = "Ses01F_impro01"
+    sequence_lengths = [0]
+    for index, row in text_features_df.iterrows():
+        row_info = row["utterance_id"].split("_")
+        if len(row_info) == 3:
+            row_info = "_".join(row_info[:2])
+        elif len(row_info) == 4:
+            row_info = "_".join(row_info[:3])
+        if prev_batch != row_info:
+            sequence_lengths.append(0)
+            batch += 1
+            prev_batch = row_info
+        sequence_lengths[batch] += 1
+
+    batch_size = len(sequence_lengths)
+    max_seq = max(sequence_lengths)
+
+    text_features = []
+    text_labels = []
+    text_mask = []
+    prev_idx = 0
+    for i, seq_len in enumerate(sequence_lengths):
+        # Labels (batch, seq) with padded seq
+        text_labels.append(np.pad(text_features_df[prev_idx:seq_len+prev_idx]["label"].T.to_numpy(), (0, max_seq - seq_len), "constant", constant_values=0))
+
+        # Features (batch, seq, feature) with padded seq
+        pad = [np.zeros(np.fromstring(text_features_df.iloc[0, 3][1:-1], sep=" ").shape[0])] * (max_seq - seq_len)
+        cleaned_features = list([elem.replace('\n', '')[2:-1] for elem in text_features_df[prev_idx:seq_len+prev_idx]["b_features"].values])  # Remove inner paranthesis and \n tokens from strings
+        cleaned_features = [np.fromstring(features, sep=" ") for features in cleaned_features]
+        text = np.stack(cleaned_features + pad, axis=0)
+        text_features.append(text)
+
+        # Text mask (batch, seq) with padded seq
+        text_mask.append(np.zeros(max_seq))
+        text_mask[i][:seq_len] = 1
+        prev_idx = seq_len - 1
+
+    # Get max sequence length
+    batch = 0
+    prev_batch = "Ses01F_impro01"
+    sequence_lengths = [0]
+    for index, row in audio_features_df.iterrows():
+        row_info = row["utterance_id"].split("_")
+        if len(row_info) == 3:
+            row_info = "_".join(row_info[:2])
+        elif len(row_info) == 4:
+            row_info = "_".join(row_info[:3])
+        if prev_batch != row_info:
+            sequence_lengths.append(0)
+            batch += 1
+            prev_batch = row_info
+        sequence_lengths[batch] += 1
+
+    batch_size = len(sequence_lengths)
+    max_seq = max(sequence_lengths)
+
+    audio_features = []
+    audio_labels = []
+    audio_mask = []
+    prev_idx = 0
+    for i, seq_len in enumerate(sequence_lengths):
+        # Labels (batch, seq) with padded seq
+        audio_labels.append(
+            np.pad(audio_features_df[prev_idx:seq_len + prev_idx]["label"].T.to_numpy(), (0, max_seq - seq_len),
+                   "constant", constant_values=0))
+
+        # Features (batch, seq, feature) with padded seq
+        pad = [np.zeros(33)] * (max_seq - seq_len)
+        f0 = audio_features_df[prev_idx:seq_len+prev_idx]["f0"].values
+        mfcc = [elem.replace("\n", "")[1:-1] for elem in audio_features_df[prev_idx:seq_len+prev_idx]["mfcc"].values]
+        cqt = [elem.replace("\n", "")[1:-1] for elem in audio_features_df[prev_idx:seq_len+prev_idx]["cqt"].values]
+        cleaned_features = np.hstack((f0.reshape(seq_len, 1), [np.fromstring(feature, sep=" ") for feature in mfcc],
+                                          [np.fromstring(feature, sep=" ") for feature in cqt])).tolist()
+        audio = np.stack(cleaned_features + pad, axis=0)
+        audio_features.append(audio)
+
+        # Text mask (batch, seq) with padded seq
+        audio_mask.append(np.zeros(max_seq))
+        audio_mask[i][:seq_len] = 1
+        prev_idx = seq_len - 1
+
 def get_extracted_data():
     train_text = []
     train_audio = []
@@ -44,7 +154,7 @@ def get_extracted_data():
     f = open("extracted_data/combined/IEMOCAP_features_raw.pkl", "rb")
     utterance_ids, text_features, audio_features, labels, train_set, test_set = pickle.load(f)
 
-    """f = open("data/IEMOCAP_features_raw.pkl", "rb")
+    """f = open("pre_extracted_features/IEMOCAP_features_raw.pkl", "rb")
     if sys.version_info[0] == 2:
         videoIDs, videoSpeakers, videoLabels, videoText, videoAudio, videoVisual, videoSentence, trainVid, testVid = pickle.load(
             f)
@@ -136,7 +246,7 @@ def get_extracted_data():
 
 
 def get_iemocap_data():
-    f = open("data/IEMOCAP_features_raw.pkl", "rb")
+    f = open("pre_extracted_features/IEMOCAP_features_raw.pkl", "rb")
     if sys.version_info[0] == 2:
         videoIDs, videoSpeakers, videoLabels, videoText, videoAudio, videoVisual, videoSentence, trainVid, testVid = pickle.load(f)
     else:

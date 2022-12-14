@@ -224,6 +224,7 @@ def main():
     text_features = extract_text_features(iemocap_df)
     print("Audio features:\n" + str(audio_features.head()))
     print("Text features:\n" + str(text_features.head()))
+    print(text_features.iloc[0]["b_features"].dtypes)
 
 
 if __name__ == '__main__':
