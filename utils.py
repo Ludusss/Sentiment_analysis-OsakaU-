@@ -8,6 +8,7 @@ from sklearn import metrics
 from operator import eq
 import pandas as pd
 import itertools
+import matplotlib.pyplot as plt
 
 
 def report_acc(output, target, mask):
@@ -33,30 +34,61 @@ def gen_bashes(features, labels, mask, batch_size):
         yield zip(features[indices], labels[indices], mask[indices])
 
 
-def process_features():
+def process_features(quad_class=False):
     """labels = {"neg": 0,
               "neu": 1,
               "pos": 2}"""
+
+    """emotion_dict = {'ang': 0,
+                    'hap': 1,
+                    'exc': 2,
+                    'sad': 3,
+                    'fru': 4,
+                    'fea': 5,
+                    'sur': 6,
+                    'neu': 7,
+                    'dis': 8,
+                    'xxx': 9,
+                    'oth': 9}"""
 
     text_features_df = pd.read_csv("extracted_data/text_features.csv")
     audio_features_df = pd.read_csv("extracted_data/audio_features.csv")
     audio_features = []
     audio_labels = []
 
-    # Remove unused labels
-    text_features_df = text_features_df[text_features_df.label != "xxx"]
-    text_features_df = text_features_df[text_features_df.label != "fea"]
-    text_features_df = text_features_df[text_features_df.label != "oth"]
-    text_features_df = text_features_df[text_features_df.label != "dis"]
-    audio_features_df = audio_features_df[audio_features_df.label != 9]
-    audio_features_df = audio_features_df[audio_features_df.label != 8]
-    audio_features_df = audio_features_df[audio_features_df.label != 6]
-    audio_features_df = audio_features_df[audio_features_df.label != 5]
+    # Remove unused labels 4 classes
+    if quad_class:
+        text_features_df = text_features_df[text_features_df.label != "fea"]
+        text_features_df = text_features_df[text_features_df.label != "sur"]
+        text_features_df = text_features_df[text_features_df.label != "dis"]
+        text_features_df = text_features_df[text_features_df.label != "xxx"]
+        text_features_df = text_features_df[text_features_df.label != "oth"]
+        audio_features_df = audio_features_df[audio_features_df.label != 5]
+        audio_features_df = audio_features_df[audio_features_df.label != 6]
+        audio_features_df = audio_features_df[audio_features_df.label != 8]
+        audio_features_df = audio_features_df[audio_features_df.label != 9]
 
-    # Reduce classes via concatenation
-    text_features_df['label'] = text_features_df['label'].replace(['fru', 'ang', 'sad', 'neu', 'exc', 'hap', 'sur'], [0, 0, 0, 1, 2, 2, 2])
-    audio_features_df['label'] = audio_features_df['label'].replace([3, 4, 7, 1, 6],
-                                                            [0, 0, 1, 2, 2])
+        # Reduce classes via concatenation 4 classes
+        text_features_df['label'] = text_features_df['label'].replace(['ang', 'hap', 'exc', 'sad', 'fru', 'neu'],
+                                                                      [0, 1, 1, 2, 2, 3])
+        audio_features_df['label'] = audio_features_df['label'].replace([2, 3, 4, 7],
+                                                                        [1, 2, 2, 3])
+        print(text_features_df['label'].value_counts())
+
+    # Remove unused labels 3 classes
+    else:
+        text_features_df = text_features_df[text_features_df.label != "dis"]
+        text_features_df = text_features_df[text_features_df.label != "xxx"]
+        text_features_df = text_features_df[text_features_df.label != "oth"]
+        audio_features_df = audio_features_df[audio_features_df.label != 8]
+        audio_features_df = audio_features_df[audio_features_df.label != 9]
+
+        # reduce classes via concatenation 3 classes
+        text_features_df['label'] = text_features_df['label'].replace(['ang', 'sad', 'fea', 'fru', 'hap', 'exc', 'sur', 'neu'],
+                                                                      [0, 0, 0, 0, 1, 1, 1, 2])
+        audio_features_df['label'] = audio_features_df['label'].replace([3, 4, 5, 2, 6, 7],
+                                                                        [0, 0, 0, 1, 1, 2])
+
     # Get max sequence length
     batch = 0
     prev_batch = "Ses01F_impro01"

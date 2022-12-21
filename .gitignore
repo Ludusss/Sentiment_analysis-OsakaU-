@@ -7,6 +7,10 @@ cmumosei_labels/
 cmumosei_raw/
 recordings/
 node_modules/
+word2vec_models/
+cross_bert/
+__pycache__/
+online_test/
 .idea
 .vscode
 *.suo
@@ -14,7 +18,4 @@ node_modules/
 *.njsproj
 *.sln
 *.sw?
-__pycache__/
 google_cloud_key.json
-word2vec_models/
-Cross-Modal-BERT/

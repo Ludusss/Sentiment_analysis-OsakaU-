@@ -11,6 +11,7 @@ import os
 import csv
 from google.cloud import storage
 from pynput.keyboard import Key, Listener
+from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "google_cloud_key.json"
 
@@ -76,6 +77,10 @@ def main():
         recorder.start()
         time.sleep(5)
         recorder.stop()
+        ffmpeg_extract_subclip(AVI_FILE_PATH, t1=0, t2=4, targetname="online_test.avi")
+        cmd = "openFace/OpenFace/build/bin/FeatureExtraction -f online_test.avi -out_dir online_test"
+        os.system(cmd)
+        time.sleep(100)
 
         upload_blob(BUCKET_NAME, WAV_FILE_PATH, WAV_FILE_PATH.split("/")[1])
         audio = speech.RecognitionAudio(uri="gs://ludus_sentiment-analysis/test.wav")
