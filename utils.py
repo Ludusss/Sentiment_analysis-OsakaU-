@@ -140,6 +140,18 @@ def process_features():
         audio_mask[i][:seq_len] = 1
         prev_idx = seq_len - 1
 
+    # Split text features into train/test
+    rand_batches = np.random.permutation(len(text_features))
+    text_features_train, text_labels_train, text_mask_train = np.array(text_features)[rand_batches[:120]], np.array(text_labels)[rand_batches[:120]], np.array(text_mask)[rand_batches[:120]]
+    text_features_test, text_labels_test, text_mask_test = np.array(text_features)[rand_batches[120:151]], np.array(text_labels)[rand_batches[120:151]], np.array(text_mask)[rand_batches[120:151]]
+
+    # Split audio features into train/test
+    rand_batches = np.random.permutation(len(audio_features))
+    audio_features_train, audio_labels_train, audio_mask_train = np.array(audio_features)[rand_batches[:120]], np.array(audio_labels)[rand_batches[:120]], np.array(audio_mask)[rand_batches[:120]]
+    audio_features_test, audio_labels_test, audio_mask_test = np.array(audio_features)[rand_batches[120:151]], np.array(audio_labels)[rand_batches[120:151]], np.array(audio_mask)[rand_batches[120:151]]
+
+    return text_features_train, text_labels_train, text_mask_train, text_features_test, text_labels_test, text_mask_test, audio_features_train, audio_labels_train, audio_mask_train, audio_features_test, audio_labels_test, audio_mask_test, text_features, audio_features
+
 def get_extracted_data():
     train_text = []
     train_audio = []

@@ -31,7 +31,7 @@ def main():
                         help='threshold for saving text model (default: 61)')
     parser.add_argument('--save_model_threshold_audio', type=float, default=36,
                         help='threshold for saving audio model (default: 36)')
-    parser.add_argument('--use_pretrained', type=bool, default=False,
+    parser.add_argument('--use_pretrained', type=bool, default=True,
                         help='Use pretrained model (default: False)')
     parser.add_argument('--use_pretrained_text', type=bool, default=False,
                         help='Use pretrained text model (default: False)')
@@ -57,11 +57,14 @@ def main():
         data_train, data_test, train_text, train_audio, test_text, test_audio, train_label, test_label, train_seq_len, test_seq_len, train_mask, test_mask = get_extracted_data()
     else:
         print("Uses pre-extracted features")
-        process_features()
+        text_features_train, text_labels_train, text_mask_train, text_features_test, text_labels_test, text_mask_test, audio_features_train, audio_labels_train, audio_mask_train, audio_features_test, audio_labels_test, audio_mask_test, _, _ = process_features()
 
     # Initialize Tensors for test set
-    target_test = torch.Tensor(np.array(test_label)).to(device)
-    target_test = target_test.view(-1).long()
+    text_target_test = torch.Tensor(text_labels_test).to(device)
+    text_target_test = text_target_test.view(-1).long()
+
+    audio_target_test = torch.Tensor(audio_labels_test).to(device)
+    audio_target_test = audio_target_test.view(-1).long()
 
     # Define model
     """model = LSTM(input_feature_size=data_train.shape[-1], hidden_size=args.hidden_size, n_classes=args.n_classes,
@@ -70,9 +73,9 @@ def main():
                   n_layers=args.n_layers, device=device)"""
     """model = LSTMSep(input_feature_size_text=train_text.shape[-1],input_feature_size_audio=train_audio.shape[-1], hidden_size=args.hidden_size, n_classes=args.n_classes,
                     n_layers=args.n_layers, device=device, fc_dim=args.fc_dim)"""
-    model_text = LSTM1(input_feature_size=train_text.shape[-1], hidden_size=args.hidden_size, n_classes=args.n_classes,
+    model_text = LSTM1(input_feature_size=text_features_train.shape[-1], hidden_size=args.hidden_size, n_classes=args.n_classes,
                        n_layers=args.n_layers, device=device)
-    model_audio = LSTM1(input_feature_size=train_audio.shape[-1], hidden_size=args.hidden_size,
+    model_audio = LSTM1(input_feature_size=audio_features_train.shape[-1], hidden_size=args.hidden_size,
                         n_classes=args.n_classes,
                         n_layers=args.n_layers, device=device)
 
@@ -84,11 +87,12 @@ def main():
     best_epoch_text = 0
     best_acc_text = 0
     train_acc = 0
+
     if not args.use_pretrained:
         if not args.use_pretrained_text:
             print("Now training text classifier...")
             for epoch in range(args.n_epochs):
-                batches = gen_bashes(train_text, train_label, train_mask, args.batch_size)
+                batches = gen_bashes(text_features_train, text_labels_train, text_mask_train, args.batch_size)
                 for idx, batch in enumerate(batches):
                     model_text.train()  # Indicate training started
                     b_train_text, b_train_label, b_train_mask = zip(*batch)
@@ -115,8 +119,8 @@ def main():
                 # Evaluation after each epoch on test set
                 model_text.eval()
                 with torch.no_grad():
-                    output_test_text = model_text(torch.Tensor(np.array(test_text)).to(device))
-                    acc_test_text, f1_test_text, conf_matrix_text, classify_report_text = report_acc(output_test_text, target_test, test_mask)
+                    output_test_text = model_text(torch.Tensor(text_features_test).to(device))
+                    acc_test_text, f1_test_text, conf_matrix_text, classify_report_text = report_acc(output_test_text, text_target_test, text_mask_test)
                     print(f"Accuracy (test): {acc_test_text} (text_lstm)")
 
                 if acc_test_text > best_acc_text:
@@ -147,7 +151,7 @@ def main():
 
             print("\nNow training audio classifier...")
             for epoch in range(args.n_epochs):
-                batches = gen_bashes(train_audio, train_label, train_mask, args.batch_size)
+                batches = gen_bashes(audio_features_train, audio_labels_train, audio_mask_train, args.batch_size)
                 for idx, batch in enumerate(batches):
                     model_audio.train()  # Indicate training started
                     b_train_audio, b_train_label, b_train_mask = zip(*batch)
@@ -174,10 +178,10 @@ def main():
                 # Evaluation after each epoch on test set
                 model_audio.eval()
                 with torch.no_grad():
-                    output_test_audio = model_audio(torch.Tensor(np.array(test_audio)).to(device))
+                    output_test_audio = model_audio(torch.Tensor(audio_features_test).to(device))
                     acc_test_audio, f1_test_audio, conf_matrix_audio, classify_report_audio = report_acc(output_test_audio,
-                                                                                                     target_test,
-                                                                                                     test_mask)
+                                                                                                     audio_target_test,
+                                                                                                     audio_mask_test)
                     print(f"Accuracy (test): {acc_test_audio} (audio_lstm)")
 
                 if acc_test_audio > best_acc_audio:
@@ -195,22 +199,22 @@ def main():
             print("Train accuracy: {:.2f}% Test accuracy: {:.2f}%".format(train_acc, best_acc_audio))
             print(classify_report_audio)
     else:
-        text_model_info = torch.load("saved_models/text_lstm/model_acc_61.61.t")
+        text_model_info = torch.load("saved_models/text_lstm/model_acc_94.91.t")
         model_text.load_state_dict(text_model_info['model_state_dict'])
         model_text.eval()
         with torch.no_grad():
-            output_test = model_text(torch.Tensor(np.array(test_text)).to(device))
-            acc_test, f1_test, conf_matrix, classify_report = report_acc(output_test, target_test, test_mask)
+            output_test = model_text(torch.Tensor(text_features_test).to(device))
+            acc_test, f1_test, conf_matrix, classify_report = report_acc(output_test, text_target_test, text_mask_test)
 
             print("Accuracy of text model loaded: {:.2f}%".format(acc_test))
             print(classify_report)
 
-        audio_model_info = torch.load("saved_models/audio_lstm/model_acc_39.13.a")
+        audio_model_info = torch.load("saved_models/audio_lstm/model_acc_91.87.a")
         model_audio.load_state_dict(audio_model_info['model_state_dict'])
         model_audio.eval()
         with torch.no_grad():
-            output_test = model_audio(torch.Tensor(np.array(test_audio)).to(device))
-            acc_test, f1_test, conf_matrix, classify_report = report_acc(output_test, target_test, test_mask)
+            output_test = model_audio(torch.Tensor(np.array(audio_features_test)).to(device))
+            acc_test, f1_test, conf_matrix, classify_report = report_acc(output_test, audio_target_test, audio_mask_test)
 
             print("Accuracy of audio model loaded: {:.2f}%".format(acc_test))
             print(classify_report)
