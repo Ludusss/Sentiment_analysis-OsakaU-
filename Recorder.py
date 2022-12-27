@@ -1,5 +1,7 @@
 import sys
 import threading
+import time
+
 import pyaudio
 from pynput import keyboard
 import wave
@@ -49,7 +51,6 @@ class Recorder(keyboard.Listener):
 
 class VideoRecoder:
     def __init__(self, avi_output_filename):
-        self.duration = 0
         self.open = True
         self.fps = 30  # fps should be the minimum constant rate at which the camera can
         self.fourcc = "DIVX"  # capture images (with no decrease in speed over time; testing is required)
@@ -82,7 +83,6 @@ class VideoRecoder:
 
 class AudioRecorder:
     def __init__(self, rate, chunk, wav_output_filename):
-        self.duration = 0
         self.open = True
         self.rate = rate
         self.chunk = chunk
@@ -101,7 +101,6 @@ class AudioRecorder:
         self.audio_stream.start_stream()
         while self.open:
             try:
-                self.duration += self.chunk / self.rate
                 data = self.audio_stream.read(self.chunk, exception_on_overflow=False)
                 self.frames.append(data)
             except Exception as e:
