@@ -11,6 +11,19 @@ import itertools
 import matplotlib.pyplot as plt
 
 
+def report_acc_mlp(output, target):
+    pred = output.argmax(dim=1, keepdim=True)
+    pred = pred.cpu().numpy()
+    target = target.cpu().numpy()
+
+    acc = ((sum(map(eq, target, pred)) / len(pred)) * 100.0)[0]
+    f1 = metrics.f1_score(target, pred, average='weighted')
+    conf_matrix = metrics.confusion_matrix(target, pred)
+    classify_report = metrics.classification_report(target, pred, digits=4, zero_division=0)
+
+    return acc, f1, conf_matrix, classify_report
+
+
 def report_acc(output, target, mask):
     pred = output.argmax(dim=1, keepdim=True)
     pred = pred.cpu().numpy()
@@ -26,13 +39,83 @@ def report_acc(output, target, mask):
     return acc, f1, conf_matrix, classify_report
 
 
-def gen_bashes(features, labels, mask, batch_size):
+def gen_batches_mlp(features, labels, batch_size):
+    permutation = torch.randperm(len(features))
+
+    for i in range(0, len(features), batch_size):
+        indices = permutation[i:i + batch_size]
+        yield zip(features[indices], labels[indices])
+
+
+def gen_batches(features, labels, mask, batch_size):
     permutation = torch.randperm(len(features))
 
     for i in range(0, len(features), batch_size):
         indices = permutation[i:i+batch_size]
         yield zip(features[indices], labels[indices], mask[indices])
 
+def process_ESD_features(quad_class=False):
+    emo_dict = {
+        "Angry": 0,
+        "Happy": 1,
+        "Neutral": 2,
+        "Sad": 3,
+        "Surprise": 4
+    }
+    X_train = []
+    X_test = []
+    X_val = []
+    y_train = []
+    y_test = []
+    y_val = []
+
+    audio_features = pd.read_csv("extracted_data/ESD/ESD_audio_features_combined.csv")
+    audio_features = audio_features.sample(frac=1)  # Shuffle features
+    train_features = audio_features.loc[audio_features['set'] == "train"]
+    train_features = train_features.drop(['set'], axis=1)
+    test_features = audio_features.loc[audio_features['set'] == "test"]
+    test_features = test_features.drop(['set'], axis=1)
+    val_features = audio_features.loc[audio_features['set'] == "val"]
+    val_features = val_features.drop(['set'], axis=1)
+
+    if quad_class:
+        train_features = train_features[train_features.label != 4]
+        test_features = train_features[train_features.label != 4]
+        val_features = train_features[train_features.label != 4]
+    else:
+        train_features['label'] = train_features['label'].replace([3, 4], [0, 1])
+        test_features['label'] = test_features['label'].replace([3, 4], [0, 1])
+        val_features['label'] = val_features['label'].replace([3, 4], [0, 1])
+
+    for feature_row in train_features.values:
+        y_train.append(feature_row[0])
+        f0 = feature_row[1]
+        mfcc = np.fromstring(feature_row[2].replace("\n", "")[1:-1], sep=" ")
+        cqt = np.fromstring(feature_row[3].replace("\n", "")[1:-1], sep=" ")
+        X_train.append(np.hstack((f0, mfcc, cqt)))
+
+    for feature_row in test_features.values:
+        y_test.append(feature_row[0])
+        f0 = feature_row[1]
+        mfcc = np.fromstring(feature_row[2].replace("\n", "")[1:-1], sep=" ")
+        cqt = np.fromstring(feature_row[3].replace("\n", "")[1:-1], sep=" ")
+        X_test.append(np.hstack((f0, mfcc, cqt)))
+
+    for feature_row in val_features.values:
+        y_val.append(feature_row[0])
+        f0 = feature_row[1]
+        mfcc = np.fromstring(feature_row[2].replace("\n", "")[1:-1], sep=" ")
+        cqt = np.fromstring(feature_row[3].replace("\n", "")[1:-1], sep=" ")
+        X_val.append(np.hstack((f0, mfcc, cqt)))
+
+    X_train = np.array(X_train)
+    X_test = np.array(X_test)
+    X_val = np.array(X_val)
+    y_train = np.array(y_train)
+    y_test = np.array(y_test)
+    y_val = np.array(y_val)
+
+    return X_train, X_test, X_val, y_train, y_test, y_val
 
 def process_features(quad_class=False):
     """labels = {"neg": 0,
@@ -73,7 +156,6 @@ def process_features(quad_class=False):
                                                                       [0, 1, 1, 2, 2, 3])
         audio_features_df['label'] = audio_features_df['label'].replace([2, 3, 4, 7],
                                                                         [1, 2, 2, 3])
-        print(text_features_df['label'].value_counts())
 
     # Remove unused labels 3 classes
     else:

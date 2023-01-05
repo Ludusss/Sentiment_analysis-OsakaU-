@@ -9,34 +9,43 @@ from google.cloud import storage
 import torch
 import csv
 import numpy as np
+import librosa
 
 # Paths
 UPLOAD_FOLDER = '../recordings'
 WAV_FILE_PATH = "../recordings/test.wav"
 BUCKET_NAME = "ludus_sentiment-analysis"
+SAMP_RATE = 22050
 
 sys.path.append(os.path.abspath("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/"))
-from model import LSTM, LSTM1
+sys.path.append(os.path.abspath("C:/Projects/Sentiment_analysis-OsakaU-/"))
+from model import LSTM, LSTM1, MLP
 
 # Initialize models
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 client = speech.SpeechClient()    # Connect to google asr
 bert = SentenceTransformer('all-mpnet-base-v2')    # Load s-bert model for text feature extractions
 
-model_text = LSTM1(input_feature_size=768, hidden_size=128, n_classes=3, n_layers=1, device=device)
-text_model_info = torch.load("../saved_models/text_lstm/3_model_acc_96.43.t")
+model_text = LSTM1(input_feature_size=768, hidden_size=128, n_classes=4, n_layers=1, device=device)
+text_model_info = torch.load("../saved_models/text_lstm/4_model_acc_86.72.t")
 
-model_audio = LSTM1(input_feature_size=33, hidden_size=128, n_classes=3, n_layers=1, device=device)
-audio_model_info = torch.load("../saved_models/audio_lstm/3_model_acc_89.54.a")
+model_audio = MLP(input_feature_size=33, hidden_size=128, n_classes=4, n_layers=1, device=device)
+audio_model_info = torch.load("../saved_models/audio_lstm/ESD/4_model_acc_74.97.a")
 
 # Initialize app
 app = Flask(__name__)
 cors = CORS(app, resources={r"/sentiment": {"origins": "*"}})
 
 
-def get_emotion(label):
-    #labels = {0: "Happy", 1: "Sad", 2: "Neutral", 3: "Angry", 4: "Excited", 5: "Frustrated"}
-    labels = {0: "Negative", 1: "Positive",  2: "Neutral"}
+def get_emotion_text(label):
+    labels = {0: "Angry", 1: "Happy", 2: "Sad", 3: "Neutral"}
+    #labels = {0: "Negative", 1: "Positive",  2: "Neutral"}
+    return labels[label]
+
+
+def get_emotion_audio(label):
+    labels = {0: "Angry", 1: "Happy", 2: "Neutral", 3: "Sad"}
+    #labels = {0: "Negative", 1: "Positive",  2: "Neutral"}
     return labels[label]
 
 
@@ -70,17 +79,27 @@ def get_sentiment():
         print("Transcript: {}".format(res.alternatives[0].transcript))
         sentence += res.alternatives[0].transcript
     sentence_embedding = np.asarray(list(bert.encode(sentence, batch_size=1)))
-    cmd = f"SMILExtract -C opensmile/config/is09-13/IS09_emotion.conf -I {WAV_FILE_PATH} -O ../extracted_data/test.csv -l 0"
-    os.system(cmd)
-    reader = csv.reader(open("../extracted_data/test.csv", 'r'))
-    rows = [row for row in reader]
-    last_line = rows[-1]
-    audio_features = np.asarray(list(map(lambda x: float(x), last_line[1: 385])))
     sentence_embedding = torch.Tensor(sentence_embedding.reshape(1, 1, 768)).to(device)
     output = model_text(sentence_embedding)
+    print(output)
     output_label = torch.argmax(output[0])
 
     if sentence == "":
         return "null", "***Transcription failed***"
+
+    if get_emotion_text(output_label.item()) != "Neutral":
+        feature_list = []
+        y, _sr = librosa.load(WAV_FILE_PATH, sr=SAMP_RATE)
+        f0, _, _ = librosa.pyin(y, fmin=librosa.note_to_hz('C0'),
+                                fmax=librosa.note_to_hz('C5'))
+        if np.isnan(f0).all():  # If pitch extraction fails discard utterance
+            return get_emotion_text(output_label.item()), sentence
+        mfcc = librosa.feature.mfcc(y=y, sr=SAMP_RATE)
+        chroma_cq = librosa.feature.chroma_cqt(y=y, sr=SAMP_RATE, fmin=librosa.note_to_hz('C2'), bins_per_octave=24)
+        feature_list.append(np.nanmean(f0))
+        feature_list.append(np.mean(mfcc, axis=1))
+        feature_list.append(np.mean(chroma_cq, axis=1))  # do later
+        return get_emotion_text(output_label.item()), sentence
     else:
-        return get_emotion(output_label.item()), sentence
+        output_label =
+        return get_emotion_audio(output_label.item()), sentence
