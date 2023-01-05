@@ -11,6 +11,9 @@ import csv
 import numpy as np
 import librosa
 
+import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 # Paths
 UPLOAD_FOLDER = '../recordings'
 WAV_FILE_PATH = "../recordings/test.wav"
@@ -30,21 +33,15 @@ model_text = LSTM1(input_feature_size=768, hidden_size=128, n_classes=4, n_layer
 text_model_info = torch.load("../saved_models/text_lstm/4_model_acc_86.72.t")
 
 model_audio = MLP(input_feature_size=33, hidden_size=128, n_classes=4, n_layers=1, device=device)
-audio_model_info = torch.load("../saved_models/audio_lstm/ESD/4_model_acc_74.97.a")
+audio_model_info = torch.load("../saved_models/audio_lstm/ESD/4_model_ESD_acc_74.97.a")
 
 # Initialize app
 app = Flask(__name__)
 cors = CORS(app, resources={r"/sentiment": {"origins": "*"}})
 
 
-def get_emotion_text(label):
+def get_emotion(label):
     labels = {0: "Angry", 1: "Happy", 2: "Sad", 3: "Neutral"}
-    #labels = {0: "Negative", 1: "Positive",  2: "Neutral"}
-    return labels[label]
-
-
-def get_emotion_audio(label):
-    labels = {0: "Angry", 1: "Happy", 2: "Neutral", 3: "Sad"}
     #labels = {0: "Negative", 1: "Positive",  2: "Neutral"}
     return labels[label]
 
@@ -80,26 +77,29 @@ def get_sentiment():
         sentence += res.alternatives[0].transcript
     sentence_embedding = np.asarray(list(bert.encode(sentence, batch_size=1)))
     sentence_embedding = torch.Tensor(sentence_embedding.reshape(1, 1, 768)).to(device)
-    output = model_text(sentence_embedding)
+    output = torch.nn.functional.softmax(model_text(sentence_embedding), dim=1)
     print(output)
+    print(sentence)
     output_label = torch.argmax(output[0])
 
     if sentence == "":
         return "null", "***Transcription failed***"
 
-    if get_emotion_text(output_label.item()) != "Neutral":
-        feature_list = []
+    if get_emotion(output_label.item()) == "Neutral":
+        audio_input = []
         y, _sr = librosa.load(WAV_FILE_PATH, sr=SAMP_RATE)
         f0, _, _ = librosa.pyin(y, fmin=librosa.note_to_hz('C0'),
                                 fmax=librosa.note_to_hz('C5'))
         if np.isnan(f0).all():  # If pitch extraction fails discard utterance
-            return get_emotion_text(output_label.item()), sentence
+            return get_emotion(output_label.item()), sentence
         mfcc = librosa.feature.mfcc(y=y, sr=SAMP_RATE)
         chroma_cq = librosa.feature.chroma_cqt(y=y, sr=SAMP_RATE, fmin=librosa.note_to_hz('C2'), bins_per_octave=24)
-        feature_list.append(np.nanmean(f0))
-        feature_list.append(np.mean(mfcc, axis=1))
-        feature_list.append(np.mean(chroma_cq, axis=1))  # do later
-        return get_emotion_text(output_label.item()), sentence
+        audio_input.append(np.nanmean(f0))
+        audio_input.extend(np.mean(mfcc, axis=1))
+        audio_input.extend(np.mean(chroma_cq, axis=1))
+        print(model_audio(torch.Tensor(audio_input)))
+        output = torch.nn.functional.softmax(model_audio(torch.Tensor(audio_input)), dim=1)
+        output_label = torch.argmax(output[0])
+        return get_emotion(output_label.item()), sentence
     else:
-        output_label =
-        return get_emotion_audio(output_label.item()), sentence
+        return get_emotion(output_label.item()), sentence

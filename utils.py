@@ -54,6 +54,7 @@ def gen_batches(features, labels, mask, batch_size):
         indices = permutation[i:i+batch_size]
         yield zip(features[indices], labels[indices], mask[indices])
 
+
 def process_ESD_features(quad_class=False):
     emo_dict = {
         "Angry": 0,
@@ -62,6 +63,7 @@ def process_ESD_features(quad_class=False):
         "Sad": 3,
         "Surprise": 4
     }
+
     X_train = []
     X_test = []
     X_val = []
@@ -82,6 +84,15 @@ def process_ESD_features(quad_class=False):
         train_features = train_features[train_features.label != 4]
         test_features = train_features[train_features.label != 4]
         val_features = train_features[train_features.label != 4]
+        train_features['label'] = train_features['label'].replace([2, 3], [3, 2])
+        test_features['label'] = train_features['label'].replace([2, 3], [3, 2])
+        val_features['label'] = train_features['label'].replace([2, 3], [3, 2])
+        """
+        "Angry": 0,
+        "Happy": 1,
+        "Sad": 2,
+        "Neutral": 3,
+        """
     else:
         train_features['label'] = train_features['label'].replace([3, 4], [0, 1])
         test_features['label'] = test_features['label'].replace([3, 4], [0, 1])
@@ -117,6 +128,7 @@ def process_ESD_features(quad_class=False):
 
     return X_train, X_test, X_val, y_train, y_test, y_val
 
+
 def process_features(quad_class=False):
     """labels = {"neg": 0,
               "neu": 1,
@@ -136,8 +148,6 @@ def process_features(quad_class=False):
 
     text_features_df = pd.read_csv("extracted_data/text_features.csv")
     audio_features_df = pd.read_csv("extracted_data/audio_features.csv")
-    audio_features = []
-    audio_labels = []
 
     # Remove unused labels 4 classes
     if quad_class:
@@ -208,7 +218,7 @@ def process_features(quad_class=False):
         # Text mask (batch, seq) with padded seq
         text_mask.append(np.zeros(max_seq))
         text_mask[i][:seq_len] = 1
-        prev_idx = seq_len - 1
+        prev_idx = prev_idx + seq_len
 
     # Get max sequence length
     batch = 0
@@ -252,7 +262,7 @@ def process_features(quad_class=False):
         # Text mask (batch, seq) with padded seq
         audio_mask.append(np.zeros(max_seq))
         audio_mask[i][:seq_len] = 1
-        prev_idx = seq_len - 1
+        prev_idx = prev_idx + seq_len
 
     # Split text features into train/test
     rand_batches = np.random.permutation(len(text_features))
@@ -265,6 +275,7 @@ def process_features(quad_class=False):
     audio_features_test, audio_labels_test, audio_mask_test = np.array(audio_features)[rand_batches[120:151]], np.array(audio_labels)[rand_batches[120:151]], np.array(audio_mask)[rand_batches[120:151]]
 
     return text_features_train, text_labels_train, text_mask_train, text_features_test, text_labels_test, text_mask_test, audio_features_train, audio_labels_train, audio_mask_train, audio_features_test, audio_labels_test, audio_mask_test, text_features, audio_features
+
 
 def get_extracted_data():
     train_text = []
