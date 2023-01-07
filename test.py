@@ -23,7 +23,7 @@ def main():
                         help='Use pre-extracted features (default: False')
     parser.add_argument('--alpha', type=float, default=0.001,
                         help='initial learning rate (default: 0.001)')
-    parser.add_argument('--n_epochs', type=int, default=35,
+    parser.add_argument('--n_epochs', type=int, default=100,
                         help='number of epochs (default: 100)')
     parser.add_argument('--hidden_size', type=int, default=128,
                         help='dimension of hidden layer in LSTM (default: 128)')
@@ -33,11 +33,11 @@ def main():
                         help='batch size text (default: 10)')
     parser.add_argument('--batch_size_audio', type=int, default=50,
                         help='batch size audio (default: 50)')
-    parser.add_argument('--save_model_threshold_text', type=float, default=70,
-                        help='threshold for saving text model (default: 88)')
+    parser.add_argument('--save_model_threshold_text', type=float, default=63,
+                        help='threshold for saving text model (default: 63)')
     parser.add_argument('--save_model_threshold_audio', type=float, default=70,
                         help='threshold for saving audio model (default: 89)')
-    parser.add_argument('--use_pretrained', type=bool, default=True,
+    parser.add_argument('--use_pretrained', type=bool, default=False,
                         help='Use pretrained model (default: False)')
     parser.add_argument('--use_pretrained_text', type=bool, default=False,
                         help='Use pretrained text model (default: False)')

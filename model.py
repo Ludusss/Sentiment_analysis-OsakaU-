@@ -3,6 +3,7 @@ import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 
+
 class MLP(nn.Module):
     def __init__(self, input_feature_size, hidden_size, n_classes, n_layers, device):
         super(MLP, self).__init__()

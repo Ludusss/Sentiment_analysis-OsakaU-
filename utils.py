@@ -54,6 +54,7 @@ def gen_batches(features, labels, mask, batch_size):
         indices = permutation[i:i+batch_size]
         yield zip(features[indices], labels[indices], mask[indices])
 
+
 def process_ESD_features(quad_class=False):
     emo_dict = {
         "Angry": 0,
@@ -62,6 +63,7 @@ def process_ESD_features(quad_class=False):
         "Sad": 3,
         "Surprise": 4
     }
+
     X_train = []
     X_test = []
     X_val = []
@@ -82,6 +84,15 @@ def process_ESD_features(quad_class=False):
         train_features = train_features[train_features.label != 4]
         test_features = train_features[train_features.label != 4]
         val_features = train_features[train_features.label != 4]
+        train_features['label'] = train_features['label'].replace([2, 3], [3, 2])
+        test_features['label'] = train_features['label'].replace([2, 3], [3, 2])
+        val_features['label'] = train_features['label'].replace([2, 3], [3, 2])
+        """
+        "Angry": 0,
+        "Happy": 1,
+        "Sad": 2,
+        "Neutral": 3,
+        """
     else:
         train_features['label'] = train_features['label'].replace([3, 4], [0, 1])
         test_features['label'] = test_features['label'].replace([3, 4], [0, 1])
@@ -136,8 +147,6 @@ def process_features(quad_class=False, use_mlp=False):
 
     text_features_df = pd.read_csv("extracted_data/text_features.csv")
     audio_features_df = pd.read_csv("extracted_data/audio_features.csv")
-    audio_features = []
-    audio_labels = []
 
     # Remove unused labels 4 classes
     if quad_class:
@@ -209,7 +218,7 @@ def process_features(quad_class=False, use_mlp=False):
             # Text mask (batch, seq) with padded seq
             text_mask.append(np.zeros(max_seq))
             text_mask[i][:seq_len] = 1
-            prev_idx = seq_len - 1
+            prev_idx = prev_idx + seq_len
 
         # Get max sequence length
         batch = 0
@@ -253,7 +262,7 @@ def process_features(quad_class=False, use_mlp=False):
             # Text mask (batch, seq) with padded seq
             audio_mask.append(np.zeros(max_seq))
             audio_mask[i][:seq_len] = 1
-            prev_idx = seq_len - 1
+            prev_idx = prev_idx + seq_len
 
         # Split text features into train/test
         rand_batches = np.random.permutation(len(text_features))
