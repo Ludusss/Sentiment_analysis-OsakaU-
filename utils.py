@@ -117,7 +117,7 @@ def process_ESD_features(quad_class=False):
 
     return X_train, X_test, X_val, y_train, y_test, y_val
 
-def process_features(quad_class=False):
+def process_features(quad_class=False, use_mlp=False):
     """labels = {"neg": 0,
               "neu": 1,
               "pos": 2}"""
@@ -171,101 +171,104 @@ def process_features(quad_class=False):
         audio_features_df['label'] = audio_features_df['label'].replace([3, 4, 5, 2, 6, 7],
                                                                         [0, 0, 0, 1, 1, 2])
 
-    # Get max sequence length
-    batch = 0
-    prev_batch = "Ses01F_impro01"
-    sequence_lengths = [0]
-    for index, row in text_features_df.iterrows():
-        row_info = row["utterance_id"].split("_")
-        if len(row_info) == 3:
-            row_info = "_".join(row_info[:2])
-        elif len(row_info) == 4:
-            row_info = "_".join(row_info[:3])
-        if prev_batch != row_info:
-            sequence_lengths.append(0)
-            batch += 1
-            prev_batch = row_info
-        sequence_lengths[batch] += 1
+    if not use_mlp:
+        # Get max sequence length
+        batch = 0
+        prev_batch = "Ses01F_impro01"
+        sequence_lengths = [0]
+        for index, row in text_features_df.iterrows():
+            row_info = row["utterance_id"].split("_")
+            if len(row_info) == 3:
+                row_info = "_".join(row_info[:2])
+            elif len(row_info) == 4:
+                row_info = "_".join(row_info[:3])
+            if prev_batch != row_info:
+                sequence_lengths.append(0)
+                batch += 1
+                prev_batch = row_info
+            sequence_lengths[batch] += 1
 
-    batch_size = len(sequence_lengths)
-    max_seq = max(sequence_lengths)
+        batch_size = len(sequence_lengths)
+        max_seq = max(sequence_lengths)
 
-    text_features = []
-    text_labels = []
-    text_mask = []
-    prev_idx = 0
-    for i, seq_len in enumerate(sequence_lengths):
-        # Labels (batch, seq) with padded seq
-        text_labels.append(np.pad(text_features_df[prev_idx:seq_len+prev_idx]["label"].T.to_numpy(), (0, max_seq - seq_len), "constant", constant_values=0))
+        text_features = []
+        text_labels = []
+        text_mask = []
+        prev_idx = 0
+        for i, seq_len in enumerate(sequence_lengths):
+            # Labels (batch, seq) with padded seq
+            text_labels.append(np.pad(text_features_df[prev_idx:seq_len+prev_idx]["label"].T.to_numpy(), (0, max_seq - seq_len), "constant", constant_values=0))
 
-        # Features (batch, seq, feature) with padded seq
-        pad = [np.zeros(np.fromstring(text_features_df.iloc[0, 3][1:-1], sep=" ").shape[0])] * (max_seq - seq_len)
-        cleaned_features = list([elem.replace('\n', '')[2:-1] for elem in text_features_df[prev_idx:seq_len+prev_idx]["b_features"].values])  # Remove inner paranthesis and \n tokens from strings
-        cleaned_features = [np.fromstring(features, sep=" ") for features in cleaned_features]
-        text = np.stack(cleaned_features + pad, axis=0)
-        text_features.append(text)
+            # Features (batch, seq, feature) with padded seq
+            pad = [np.zeros(np.fromstring(text_features_df.iloc[0, 3][1:-1], sep=" ").shape[0])] * (max_seq - seq_len)
+            cleaned_features = list([elem.replace('\n', '')[2:-1] for elem in text_features_df[prev_idx:seq_len+prev_idx]["b_features"].values])  # Remove inner paranthesis and \n tokens from strings
+            cleaned_features = [np.fromstring(features, sep=" ") for features in cleaned_features]
+            text = np.stack(cleaned_features + pad, axis=0)
+            text_features.append(text)
 
-        # Text mask (batch, seq) with padded seq
-        text_mask.append(np.zeros(max_seq))
-        text_mask[i][:seq_len] = 1
-        prev_idx = seq_len - 1
+            # Text mask (batch, seq) with padded seq
+            text_mask.append(np.zeros(max_seq))
+            text_mask[i][:seq_len] = 1
+            prev_idx = seq_len - 1
 
-    # Get max sequence length
-    batch = 0
-    prev_batch = "Ses01F_impro01"
-    sequence_lengths = [0]
-    for index, row in audio_features_df.iterrows():
-        row_info = row["utterance_id"].split("_")
-        if len(row_info) == 3:
-            row_info = "_".join(row_info[:2])
-        elif len(row_info) == 4:
-            row_info = "_".join(row_info[:3])
-        if prev_batch != row_info:
-            sequence_lengths.append(0)
-            batch += 1
-            prev_batch = row_info
-        sequence_lengths[batch] += 1
+        # Get max sequence length
+        batch = 0
+        prev_batch = "Ses01F_impro01"
+        sequence_lengths = [0]
+        for index, row in audio_features_df.iterrows():
+            row_info = row["utterance_id"].split("_")
+            if len(row_info) == 3:
+                row_info = "_".join(row_info[:2])
+            elif len(row_info) == 4:
+                row_info = "_".join(row_info[:3])
+            if prev_batch != row_info:
+                sequence_lengths.append(0)
+                batch += 1
+                prev_batch = row_info
+            sequence_lengths[batch] += 1
 
-    batch_size = len(sequence_lengths)
-    max_seq = max(sequence_lengths)
+        batch_size = len(sequence_lengths)
+        max_seq = max(sequence_lengths)
 
-    audio_features = []
-    audio_labels = []
-    audio_mask = []
-    prev_idx = 0
-    for i, seq_len in enumerate(sequence_lengths):
-        # Labels (batch, seq) with padded seq
-        audio_labels.append(
-            np.pad(audio_features_df[prev_idx:seq_len + prev_idx]["label"].T.to_numpy(), (0, max_seq - seq_len),
-                   "constant", constant_values=0))
+        audio_features = []
+        audio_labels = []
+        audio_mask = []
+        prev_idx = 0
+        for i, seq_len in enumerate(sequence_lengths):
+            # Labels (batch, seq) with padded seq
+            audio_labels.append(
+                np.pad(audio_features_df[prev_idx:seq_len + prev_idx]["label"].T.to_numpy(), (0, max_seq - seq_len),
+                       "constant", constant_values=0))
 
-        # Features (batch, seq, feature) with padded seq
-        pad = [np.zeros(33)] * (max_seq - seq_len)
-        f0 = audio_features_df[prev_idx:seq_len+prev_idx]["f0"].values
-        mfcc = [elem.replace("\n", "")[1:-1] for elem in audio_features_df[prev_idx:seq_len+prev_idx]["mfcc"].values]
-        cqt = [elem.replace("\n", "")[1:-1] for elem in audio_features_df[prev_idx:seq_len+prev_idx]["cqt"].values]
-        cleaned_features = np.hstack((f0.reshape(seq_len, 1), [np.fromstring(feature, sep=" ") for feature in mfcc],
-                                          [np.fromstring(feature, sep=" ") for feature in cqt])).tolist()
-        audio = np.stack(cleaned_features + pad, axis=0)
-        audio_features.append(audio)
+            # Features (batch, seq, feature) with padded seq
+            pad = [np.zeros(33)] * (max_seq - seq_len)
+            f0 = audio_features_df[prev_idx:seq_len+prev_idx]["f0"].values
+            mfcc = [elem.replace("\n", "")[1:-1] for elem in audio_features_df[prev_idx:seq_len+prev_idx]["mfcc"].values]
+            cqt = [elem.replace("\n", "")[1:-1] for elem in audio_features_df[prev_idx:seq_len+prev_idx]["cqt"].values]
+            cleaned_features = np.hstack((f0.reshape(seq_len, 1), [np.fromstring(feature, sep=" ") for feature in mfcc],
+                                              [np.fromstring(feature, sep=" ") for feature in cqt])).tolist()
+            audio = np.stack(cleaned_features + pad, axis=0)
+            audio_features.append(audio)
 
-        # Text mask (batch, seq) with padded seq
-        audio_mask.append(np.zeros(max_seq))
-        audio_mask[i][:seq_len] = 1
-        prev_idx = seq_len - 1
+            # Text mask (batch, seq) with padded seq
+            audio_mask.append(np.zeros(max_seq))
+            audio_mask[i][:seq_len] = 1
+            prev_idx = seq_len - 1
 
-    # Split text features into train/test
-    rand_batches = np.random.permutation(len(text_features))
-    text_features_train, text_labels_train, text_mask_train = np.array(text_features)[rand_batches[:120]], np.array(text_labels)[rand_batches[:120]], np.array(text_mask)[rand_batches[:120]]
-    text_features_test, text_labels_test, text_mask_test = np.array(text_features)[rand_batches[120:151]], np.array(text_labels)[rand_batches[120:151]], np.array(text_mask)[rand_batches[120:151]]
+        # Split text features into train/test
+        rand_batches = np.random.permutation(len(text_features))
+        text_features_train, text_labels_train, text_mask_train = np.array(text_features)[rand_batches[:120]], np.array(text_labels)[rand_batches[:120]], np.array(text_mask)[rand_batches[:120]]
+        text_features_test, text_labels_test, text_mask_test = np.array(text_features)[rand_batches[120:151]], np.array(text_labels)[rand_batches[120:151]], np.array(text_mask)[rand_batches[120:151]]
 
-    # Split audio features into train/test
-    rand_batches = np.random.permutation(len(audio_features))
-    audio_features_train, audio_labels_train, audio_mask_train = np.array(audio_features)[rand_batches[:120]], np.array(audio_labels)[rand_batches[:120]], np.array(audio_mask)[rand_batches[:120]]
-    audio_features_test, audio_labels_test, audio_mask_test = np.array(audio_features)[rand_batches[120:151]], np.array(audio_labels)[rand_batches[120:151]], np.array(audio_mask)[rand_batches[120:151]]
+        # Split audio features into train/test
+        rand_batches = np.random.permutation(len(audio_features))
+        audio_features_train, audio_labels_train, audio_mask_train = np.array(audio_features)[rand_batches[:120]], np.array(audio_labels)[rand_batches[:120]], np.array(audio_mask)[rand_batches[:120]]
+        audio_features_test, audio_labels_test, audio_mask_test = np.array(audio_features)[rand_batches[120:151]], np.array(audio_labels)[rand_batches[120:151]], np.array(audio_mask)[rand_batches[120:151]]
 
-    return text_features_train, text_labels_train, text_mask_train, text_features_test, text_labels_test, text_mask_test, audio_features_train, audio_labels_train, audio_mask_train, audio_features_test, audio_labels_test, audio_mask_test, text_features, audio_features
-
+        return text_features_train, text_labels_train, text_mask_train, text_features_test, text_labels_test, text_mask_test, audio_features_train, audio_labels_train, audio_mask_train, audio_features_test, audio_labels_test, audio_mask_test, text_features, audio_features
+    else:
+        print(text_features_df.head())
+        time.sleep(1000)
 def get_extracted_data():
     train_text = []
     train_audio = []

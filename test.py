@@ -15,6 +15,8 @@ def main():
     parser = argparse.ArgumentParser(description='IEMOCAP Sentiment Analysis')
     parser.add_argument('--use_esd', type=bool, default=True,
                         help='Use esd dataset (default: True')
+    parser.add_argument('--use_mlp', type=bool, default=True,
+                        help='Use mlp for text (default: True')
     parser.add_argument('--use_quad_classes', type=bool, default=True,
                         help='Use 4 class classifier (default: True')
     parser.add_argument('--use_pre_extracted', type=bool, default=False,
@@ -58,7 +60,7 @@ def main():
             audio_train, audio_test, audio_val, audio_labels_train, audio_labels_test, audio_labels_val = process_ESD_features(args.use_quad_classes)
     else:
         print("Uses own features")
-        text_features_train, text_labels_train, text_mask_train, text_features_test, text_labels_test, text_mask_test, audio_features_train, audio_labels_train, audio_mask_train, audio_features_test, audio_labels_test, audio_mask_test, _, _ = process_features(args.use_quad_classes)
+        text_features_train, text_labels_train, text_mask_train, text_features_test, text_labels_test, text_mask_test, audio_features_train, audio_labels_train, audio_mask_train, audio_features_test, audio_labels_test, audio_mask_test, _, _ = process_features(args.use_quad_classes, args.use_mlp)
         if args.use_esd:
             audio_train, audio_test, audio_val, audio_labels_train, audio_labels_test, audio_labels_val = process_ESD_features(args.use_quad_classes)
 
