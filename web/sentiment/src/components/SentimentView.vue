@@ -12,7 +12,9 @@
     <div v-if="sentiment != 'null'" class="flex flex-column align-items-center mt-4">
       <h2>Your Sentiment:</h2>
       <img v-if="sentiment == 'Happy'" src="../assets/happy.png" alt="Happy" width="120" height="120" />
+      <img v-if="sentiment == 'Positive'" src="../assets/happy.png" alt="Positive" width="120" height="120" />
       <img v-if="sentiment == 'Angry'" src="../assets/angry.png" alt="Angry" width="120" height="120" />
+      <img v-if="sentiment == 'Negative'" src="../assets/angry.png" alt="Negative" width="120" height="120" />
       <img v-if="sentiment == 'Neutral'" src="../assets/neutral.png" alt="Neutral" width="120" height="120" />
       <img v-if="sentiment == 'Sad'" src="../assets/sad.png" alt="Sad" />
       <p>{{ sentimentText }}</p>
