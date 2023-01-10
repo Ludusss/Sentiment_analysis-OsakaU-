@@ -4,6 +4,35 @@ import numpy as np
 import torch.nn.functional as F
 
 
+class MLP_2(nn.Module):
+    def __init__(self, input_feature_size, hidden_size, fc_dim, n_classes, n_layers, device):
+        super(MLP_2, self).__init__()
+        self.input_feature_size = input_feature_size
+        self.hidden_size = hidden_size
+        self.n_layers = n_layers
+        self.n_classes = n_classes
+        self.device = device
+        self.fc_dim = fc_dim
+
+        self.fc = nn.Linear(self.input_feature_size, self.hidden_size)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(0.5)
+        self.fc1 = nn.Linear(self.hidden_size, self.fc_dim)
+        self.dropout1 = nn.Dropout(0.5)
+        self.fc2 = nn.Linear(self.fc_dim, self.n_classes)
+
+    def forward(self, x):
+        out = self.fc(x)
+        out = self.dropout(out)
+        out = self.relu(out)
+        out = self.fc1(out)
+        out = self.dropout1(out)
+        out = self.relu(out)
+        out = self.fc2(out)
+
+        return out
+
+
 class MLP(nn.Module):
     def __init__(self, input_feature_size, hidden_size, n_classes, n_layers, device):
         super(MLP, self).__init__()
@@ -15,7 +44,7 @@ class MLP(nn.Module):
 
         self.fc = nn.Linear(self.input_feature_size, self.hidden_size)
         self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(0.25)
+        self.dropout = nn.Dropout(0.5)
         self.fc1 = nn.Linear(self.hidden_size, self.n_classes)
 
     def forward(self, x):

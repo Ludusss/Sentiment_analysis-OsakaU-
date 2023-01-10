@@ -12,11 +12,8 @@ import matplotlib.pyplot as plt
 
 
 def report_acc_mlp(output, target):
-    pred = output.argmax(dim=1, keepdim=True)
-    pred = pred.cpu().numpy()
-    target = target.cpu().numpy()
-
-    acc = ((sum(map(eq, target, pred)) / len(pred)) * 100.0)[0]
+    pred = output.argmax(dim=1)
+    acc = (torch.eq(target, pred).sum().item() / len(pred)) * 100
     f1 = metrics.f1_score(target, pred, average='weighted')
     conf_matrix = metrics.confusion_matrix(target, pred)
     classify_report = metrics.classification_report(target, pred, digits=4, zero_division=0)
@@ -126,10 +123,10 @@ def process_ESD_features(quad_class=False):
     y_test = np.array(y_test)
     y_val = np.array(y_val)
 
-    return X_train, X_test, X_val, y_train, y_test, y_val
+    return X_train, y_train, X_test, y_test, X_val, y_val
 
 def process_twitter():
-    emo_dict = {
+    emo_dict_sample = {
         "anger": 0,
         "happiness": 1,
         "sadness": 2,
@@ -144,6 +141,12 @@ def process_twitter():
         "enthusiasm": 11,
         "boredom": 12
     }
+    emo_dict = {
+        "neg": 0,
+        "pos": 1,
+        "neu": 2
+    }
+
     X_train = []
     X_test = []
     X_val = []
@@ -152,22 +155,24 @@ def process_twitter():
     y_val = []
 
     sentiment_data_df = pd.read_csv("extracted_data/twitter/twitter_text_features.csv")
+    sentiment_data_df["sentiment"] = sentiment_data_df["sentiment"].replace(["neutral", "anger", "happiness", "worry", "fun", "relief"],
+                                                                            ["neu", "neg", "pos", "neg", "pos", "pos"])
+    sentiment_data_df = sentiment_data_df[~sentiment_data_df['sentiment'].isin(["sadness", "love", "surprise", "hate", "empty", "enthusiasm", "boredom"])]
     sentiment_data_df = sentiment_data_df.sample(frac=1)
-    train_end_idx = int((sentiment_data_df.shape[0] * 0.8)) - 1
-    test_end_idx = int((sentiment_data_df.shape[0] * 0.1)) + train_end_idx
-    val_end_idx = int((sentiment_data_df.shape[0] * 0.1)) + test_end_idx
+    indices = np.arange(sentiment_data_df.shape[0])
+    train_idx, test_idx, val_idx = np.split(indices, [int(len(indices)*0.8), int(len(indices)*0.9)])
 
-    for index, row in sentiment_data_df.iterrows():
-        if index <= train_end_idx:
-            X_train.append(np.fromstring(row["content"].replace("\n", "")[1:-1], sep=" "))
-            y_train.append(emo_dict[row["sentiment"]])
-        if index <= test_end_idx and index > train_end_idx:
-            X_test.append(np.fromstring(row["content"].replace("\n", "")[1:-1], sep=" "))
-            y_test.append(emo_dict[row["sentiment"]])
-        if index <= val_end_idx and index > test_end_idx:
-            X_val.append(np.fromstring(row["content"].replace("\n", "")[1:-1], sep=" "))
-            y_val.append(emo_dict[row["sentiment"]])
+    for i in train_idx:
+        X_train.append(np.fromstring(sentiment_data_df.iloc[i]["content"].replace("\n", "")[1:-1], sep=" "))
+        y_train.append(emo_dict[sentiment_data_df.iloc[i]["sentiment"]])
+    for i in test_idx:
+        X_test.append(np.fromstring(sentiment_data_df.iloc[i]["content"].replace("\n", "")[1:-1], sep=" "))
+        y_test.append(emo_dict[sentiment_data_df.iloc[i]["sentiment"]])
+    for i in val_idx:
+        X_val.append(np.fromstring(sentiment_data_df.iloc[i]["content"].replace("\n", "")[1:-1], sep=" "))
+        y_val.append(emo_dict[sentiment_data_df.iloc[i]["sentiment"]])
     return np.array(X_train), np.array(y_train), np.array(X_test), np.array(y_test), np.array(X_val), np.array(y_val)
+
 
 def process_features(quad_class=False):
     """labels = {"neg": 0,

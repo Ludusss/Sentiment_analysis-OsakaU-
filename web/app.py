@@ -10,6 +10,10 @@ import torch
 import csv
 import numpy as np
 import librosa
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+import moviepy.editor as moviepy
+
+
 
 import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -27,22 +31,35 @@ from model import LSTM, LSTM1, MLP
 # Initialize models
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 client = speech.SpeechClient()    # Connect to google asr
-bert = SentenceTransformer('all-mpnet-base-v2')    # Load s-bert model for text feature extractions
+#bert = SentenceTransformer('all-mpnet-base-v2')    # Load s-bert model for text feature extractions
+sentiment = SentimentIntensityAnalyzer()
 
-model_text = LSTM1(input_feature_size=768, hidden_size=128, n_classes=4, n_layers=1, device=device)
-text_model_info = torch.load("../saved_models/text_lstm/4_model_acc_67.44.t")
+"""model_text = LSTM1(input_feature_size=768, hidden_size=128, n_classes=4, n_layers=1, device=device)
+text_model_info = torch.load("../saved_models/text_lstm/4_model_acc_67.44.t")"""
 
-model_audio = MLP(input_feature_size=33, hidden_size=128, n_classes=4, n_layers=1, device=device)
-audio_model_info = torch.load("../saved_models/audio_lstm/ESD/4_model_ESD_acc_74.97.a")
+model_audio = MLP(input_feature_size=33, hidden_size=128, n_classes=3, n_layers=1, device=device)
+audio_model_info = torch.load("../saved_models/audio_mlp/ESD/3_model_ESD_acc_69.38.a")
+model_audio.eval()
+model_audio.zero_grad()
 
 # Initialize app
 app = Flask(__name__)
 cors = CORS(app, resources={r"/sentiment": {"origins": "*"}})
 
 
-def get_emotion(label):
+def get_audio_emotion_4(label):
     labels = {0: "Angry", 1: "Happy", 2: "Sad", 3: "Neutral"}
     #labels = {0: "Negative", 1: "Positive",  2: "Neutral"}
+    return labels[label]
+
+
+def get_audio_emotion_3(label):
+    labels = {0: "Negative", 1: "Positive", 2: "Neutral"}
+    return labels[label]
+
+
+def get_text_emotion(label):
+    labels = {0: "Negative", 1: "Neutral", 2: "Positive"}
     return labels[label]
 
 
@@ -74,32 +91,38 @@ def get_sentiment():
     sentence = ""
     for res in response.results:
         print("Transcript: {}".format(res.alternatives[0].transcript))
-        sentence += res.alternatives[0].transcript
-    sentence_embedding = np.asarray(list(bert.encode(sentence, batch_size=1)))
-    sentence_embedding = torch.Tensor(sentence_embedding.reshape(1, 1, 768)).to(device)
-    output = torch.nn.functional.softmax(model_text(sentence_embedding), dim=1)
-    print(output)
-    print(sentence)
-    output_label = torch.argmax(output[0])
+        sentence = res.alternatives[0].transcript
 
     if sentence == "":
         return "null", "***Transcription failed***"
 
-    if get_emotion(output_label.item()) == "Neutral":
+    """sentence_embedding = np.asarray(list(bert.encode(sentence, batch_size=1)))
+    sentence_embedding = torch.Tensor(sentence_embedding.reshape(1, 1, 768)).to(device)
+    output = torch.nn.functional.softmax(model_text(sentence_embedding), dim=1)"""
+    output = sentiment.polarity_scores(sentence)
+    print(output)
+    print(sentence)
+    sentiment_scores = np.array([output["neg"], output["neu"], output["pos"]])
+    output_label = get_text_emotion(np.argmax(sentiment_scores))
+
+    if output_label == "Neutral":
+        clip = moviepy.VideoFileClip(WAV_FILE_PATH)
+        clip.write_audiofile(WAV_FILE_PATH)
         audio_input = []
         y, _sr = librosa.load(WAV_FILE_PATH, sr=SAMP_RATE)
         f0, _, _ = librosa.pyin(y, fmin=librosa.note_to_hz('C0'),
                                 fmax=librosa.note_to_hz('C5'))
         if np.isnan(f0).all():  # If pitch extraction fails discard utterance
-            return get_emotion(output_label.item()), sentence
+            print("hej")
+            return output_label, sentence
         mfcc = librosa.feature.mfcc(y=y, sr=SAMP_RATE)
         chroma_cq = librosa.feature.chroma_cqt(y=y, sr=SAMP_RATE, fmin=librosa.note_to_hz('C2'), bins_per_octave=24)
         audio_input.append(np.nanmean(f0))
         audio_input.extend(np.mean(mfcc, axis=1))
         audio_input.extend(np.mean(chroma_cq, axis=1))
         print(model_audio(torch.Tensor(audio_input)))
-        output = torch.nn.functional.softmax(model_audio(torch.Tensor(audio_input)), dim=1)
+        output = torch.softmax(model_audio(torch.Tensor(audio_input)), dim=1)
         output_label = torch.argmax(output[0])
-        return get_emotion(output_label.item()), sentence
+        return get_audio_emotion_3(output_label.item()), sentence
     else:
-        return get_emotion(output_label.item()), sentence
+        return output_label, sentence
