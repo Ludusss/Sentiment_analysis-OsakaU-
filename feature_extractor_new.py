@@ -335,6 +335,16 @@ def extract_ESD_audio_features():
 
     return df_features
 
+
+def extract_twitter_text_features():
+    model = SentenceTransformer('all-mpnet-base-v2')  # Load s-bert model for text feature extractions
+    twitter_df = pd.read_csv("raw_data/twitter/text_emotion.csv")
+    twitter_df = twitter_df.drop(["tweet_id", "author"], axis=1)
+    twitter_df["content"] = twitter_df["content"].apply(lambda x:  model.encode(x))
+    twitter_df.to_csv("extracted_data/twitter/twitter_text_features.csv")
+    return twitter_df
+
+
 def main():
     iemocap_df = extract_iemocap_info()
     print(iemocap_df.head())
@@ -343,9 +353,11 @@ def main():
     audio_features = extract_audio_features(iemocap_df)
     text_features = extract_text_features(iemocap_df)
     esd_audio_features = extract_ESD_audio_features()
+    twitter_features = extract_twitter_text_features()
     print("Audio features:\n" + str(audio_features.head()))
     print("Text features:\n" + str(text_features.head()))
     print("ESD audio features:\n" + str(esd_audio_features.head()))
+    print("Twitter text features:\n" + str(twitter_features.head()))
 
 
 if __name__ == '__main__':
