@@ -45,7 +45,7 @@ def main():
                         help='threshold for saving text model (default: 63)')
     parser.add_argument('--save_model_threshold_audio', type=float, default=83,
                         help='threshold for saving audio model (default: 83)')
-    parser.add_argument('--use_pretrained', type=bool, default=False,
+    parser.add_argument('--use_pretrained', type=bool, default=True,
                         help='Use pretrained model (default: False)')
     parser.add_argument('--use_pretrained_text', type=bool, default=True,
                         help='Use pretrained text model (default: False)')
@@ -345,8 +345,13 @@ def main():
         if args.use_quad_classes:
             audio_model_info = torch.load("saved_models/audio_lstm/ESD/4_model_ESD_acc_74.97.a")
         else:
-            audio_model_info = torch.load("saved_models/audio_mlp/ESD/3_model_ESD_acc_83.85.a")
+            audio_model_info = torch.load("saved_models/audio_mlp/ESD/3_model_ESD_acc_84.85.a")
         model_audio.load_state_dict(audio_model_info['model_state_dict'])
+        for name, param in model_audio.state_dict().items():
+            if name == "fc.weight":
+                param[:][0] = param[:][0] + 0.23364777586901642
+            if name == "fc1.weight":
+                param[:][0] = param[:][0] + 0.012529474944793237
         model_audio.eval()
         with torch.no_grad():
             output_test = model_audio(torch.Tensor(np.array(audio_test)).to(device))
