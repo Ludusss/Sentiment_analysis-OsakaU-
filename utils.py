@@ -9,6 +9,8 @@ from operator import eq
 import pandas as pd
 import itertools
 import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+from sklearn import preprocessing
 
 
 def report_acc_mlp(output, target):
@@ -69,6 +71,27 @@ def process_ESD_features(quad_class=False):
     y_val = []
 
     audio_features = pd.read_csv("extracted_data/ESD/ESD_audio_features_combined.csv")
+    """labels = []
+    X = []
+    for feature_row in audio_features.values:
+        labels.append(feature_row[1])
+        f0 = feature_row[2]
+        mfcc = np.fromstring(feature_row[3].replace("\n", "")[1:-1], sep=" ")
+        cqt = np.fromstring(feature_row[4].replace("\n", "")[1:-1], sep=" ")
+        X.append(np.hstack((f0, mfcc, cqt)))
+    pca = PCA(n_components=3)
+    X_r = pca.fit_transform(X)
+    cdict = {0: 'red', 1: 'red', 2: 'gray', 3: "green", 4: "green"}
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    for g in np.unique(labels):
+        ix = np.where(labels == g)
+        ax.scatter(X_r[ix[0][0:50], 0], X_r[ix[0][0:50], 1], X_r[ix[0][0:50], 2], c=cdict[g], label=g, s=100)
+    ax.legend()
+    plt.show()"""
+    neutral_samples = audio_features.label.value_counts()[2]
+    oversampled_neutral = audio_features[audio_features["label"] == 2].sample(neutral_samples)
+    audio_features = pd.concat([audio_features, oversampled_neutral], axis=0)
     audio_features = audio_features.sample(frac=1)  # Shuffle features
     train_features = audio_features.loc[audio_features['set'] == "train"]
     train_features = train_features.drop(['set'], axis=1)
@@ -123,7 +146,11 @@ def process_ESD_features(quad_class=False):
     y_test = np.array(y_test)
     y_val = np.array(y_val)
 
-    return X_train, y_train, X_test, y_test, X_val, y_val
+    scaled_train = preprocessing.StandardScaler().fit_transform(X_train)
+    scaled_test = preprocessing.StandardScaler().fit_transform(X_test)
+    scaled_val = preprocessing.StandardScaler().fit_transform(X_val)
+
+    return scaled_train, y_train, scaled_test, y_test, scaled_val, y_val
 
 def process_twitter():
     emo_dict_sample = {

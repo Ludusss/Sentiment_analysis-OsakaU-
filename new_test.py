@@ -43,8 +43,8 @@ def main():
                         help='batch size audio model (default: 32)')
     parser.add_argument('--save_model_threshold_text', type=float, default=63,
                         help='threshold for saving text model (default: 63)')
-    parser.add_argument('--save_model_threshold_audio', type=float, default=69,
-                        help='threshold for saving audio model (default: 69)')
+    parser.add_argument('--save_model_threshold_audio', type=float, default=83,
+                        help='threshold for saving audio model (default: 83)')
     parser.add_argument('--use_pretrained', type=bool, default=False,
                         help='Use pretrained model (default: False)')
     parser.add_argument('--use_pretrained_text', type=bool, default=True,

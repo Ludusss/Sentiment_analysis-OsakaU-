@@ -38,7 +38,7 @@ sentiment = SentimentIntensityAnalyzer()
 text_model_info = torch.load("../saved_models/text_lstm/4_model_acc_67.44.t")"""
 
 model_audio = MLP(input_feature_size=33, hidden_size=128, n_classes=3, n_layers=1, device=device)
-audio_model_info = torch.load("../saved_models/audio_mlp/ESD/3_model_ESD_acc_69.38.a")
+audio_model_info = torch.load("../saved_models/audio_mlp/ESD/3_model_ESD_acc_83.85.a")
 model_audio.eval()
 model_audio.zero_grad()
 
