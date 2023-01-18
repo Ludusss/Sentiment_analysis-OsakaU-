@@ -146,6 +146,18 @@ def process_ESD_features(quad_class=False):
     y_test = np.array(y_test)
     y_val = np.array(y_val)
 
+    """scaler_train = preprocessing.StandardScaler().fit(X_train)
+    scaler_test = preprocessing.StandardScaler().fit(X_test)
+    scaler_val = preprocessing.StandardScaler().fit(X_val)
+    np.savetxt("useful_variables/train/train_mean.csv", scaler_train.mean_)
+    np.savetxt("useful_variables/train/train_variance.csv", scaler_train.scale_)
+    np.savetxt("useful_variables/test/test_mean.csv", scaler_test.mean_)
+    np.savetxt("useful_variables/test/test_variance.csv", scaler_test.scale_)
+    np.savetxt("useful_variables/val/val_mean.csv", scaler_val.mean_)
+    np.savetxt("useful_variables/val/val_variance.csv", scaler_val.scale_)
+
+    time.sleep(10000)"""
+
     scaled_train = preprocessing.StandardScaler().fit_transform(X_train)
     scaled_test = preprocessing.StandardScaler().fit_transform(X_test)
     scaled_val = preprocessing.StandardScaler().fit_transform(X_val)

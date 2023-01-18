@@ -58,13 +58,13 @@ def main():
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    text_train, text_labels_train, text_test, text_labels_test, text_val, text_labels_val = process_twitter()   # Text data
+    #text_train, text_labels_train, text_test, text_labels_test, text_val, text_labels_val = process_twitter()   # Text data
     audio_train, audio_labels_train, audio_test, audio_labels_test, audio_val, audio_labels_val = process_ESD_features(args.use_quad_classes)   # Audio data
 
     # Initialize Tensors for train, val and test sets
-    text_target_train = torch.Tensor(text_labels_train).to(device)
+    """text_target_train = torch.Tensor(text_labels_train).to(device)
     text_target_val = torch.Tensor(text_labels_val).to(device)
-    text_target_test = torch.Tensor(text_labels_test).to(device)
+    text_target_test = torch.Tensor(text_labels_test).to(device)"""
 
     audio_target_train = torch.Tensor(audio_labels_train).to(device)
     audio_target_val = torch.Tensor(audio_labels_val).to(device)
@@ -73,17 +73,17 @@ def main():
     # Define models
     if args.use_quad_classes:
         print("4-class models used")
-        model_text = MLP(input_feature_size=text_train.shape[-1], hidden_size=args.hidden_size_text, n_classes=13,
-                            n_layers=args.n_layers_text, device=device)
+        """model_text = MLP(input_feature_size=text_train.shape[-1], hidden_size=args.hidden_size_text, n_classes=13,
+                            n_layers=args.n_layers_text, device=device)"""
 
         model_audio = MLP(input_feature_size=audio_train.shape[-1], hidden_size=args.hidden_size_audio, n_classes=4,
                               n_layers=args.n_layers_audio, device=device)
     else:
         print("3-class models used")
-        model_text = MLP(input_feature_size=text_train.shape[-1], hidden_size=args.hidden_size_text, n_classes=3,
-                         n_layers=args.n_layers_text, device=device)
+        """model_text = MLP(input_feature_size=text_train.shape[-1], hidden_size=args.hidden_size_text, n_classes=3,
+                         n_layers=args.n_layers_text, device=device)"""
 
-        model_audio = MLP(input_feature_size=audio_train.shape[-1], hidden_size=args.hidden_size_audio, n_classes=3, n_layers=args.n_layers_audio, device=device)
+        model_audio = MLP(input_feature_size=audio_train.shape[-1], hidden_size=118, n_classes=3, n_layers=args.n_layers_audio, device=device)
 
     if not args.use_pretrained:
         if not args.use_pretrained_text:
@@ -205,7 +205,7 @@ def main():
         if not args.use_pretrained_audio:
             # Setting loss function and optimizer
             criterion = nn.CrossEntropyLoss()
-            optimizer = torch.optim.Adam(model_audio.parameters(), lr=args.alpha)
+            optimizer = torch.optim.Adam(model_audio.parameters(), lr=0.039917805468637345)
             scheduler = StepLR(optimizer, step_size=1, gamma=args.lr_decay)
 
             best_epoch_audio = 0
@@ -316,7 +316,7 @@ def main():
 
             plt.show()
     else:
-        if args.use_quad_classes:
+        """if args.use_quad_classes:
             text_model_info = torch.load("saved_models/text_lstm/4_model_acc_86.72.t")
         else:
             text_model_info = torch.load("saved_models/text_lstm/3_model_acc_84.06.t")
@@ -327,8 +327,8 @@ def main():
             acc_test, f1_test, conf_matrix, classify_report = report_acc(output_test, text_target_test, text_mask_test)
 
             print("Accuracy of text model loaded: {:.2f}%".format(acc_test))
-            print(classify_report)
-        if not args.use_esd:
+            print(classify_report)"""
+        """if not args.use_esd:
             if args.use_quad_classes:
                 audio_model_info = torch.load("saved_models/audio_lstm/4_model_acc_89.72.a")
             else:
@@ -341,19 +341,19 @@ def main():
 
                 print("Accuracy of audio model loaded: {:.2f}%".format(acc_test))
                 print(classify_report)
+        else:"""
+        if args.use_quad_classes:
+            audio_model_info = torch.load("saved_models/audio_lstm/ESD/4_model_ESD_acc_74.97.a")
         else:
-            if args.use_quad_classes:
-                audio_model_info = torch.load("saved_models/audio_lstm/ESD/4_model_ESD_acc_74.97.a")
-            else:
-                audio_model_info = torch.load("saved_models/audio_lstm/ESD/3_model_ESD_acc_89.72.a")
-            model_audio.load_state_dict(audio_model_info['model_state_dict'])
-            model_audio.eval()
-            with torch.no_grad():
-                output_test = model_audio(torch.Tensor(np.array(audio_test)).to(device))
-                acc_test, f1_test, conf_matrix, classify_report = report_acc_mlp(output_test, audio_target_test)
+            audio_model_info = torch.load("saved_models/audio_mlp/ESD/3_model_ESD_acc_83.85.a")
+        model_audio.load_state_dict(audio_model_info['model_state_dict'])
+        model_audio.eval()
+        with torch.no_grad():
+            output_test = model_audio(torch.Tensor(np.array(audio_test)).to(device))
+            acc_test, f1_test, conf_matrix, classify_report = report_acc_mlp(output_test, audio_target_test)
 
-                print("Accuracy of audio model loaded: {:.2f}%".format(acc_test))
-                print(classify_report)
+            print("Accuracy of audio model loaded: {:.2f}%".format(acc_test))
+            print(classify_report)
 
 
 if __name__ == '__main__':

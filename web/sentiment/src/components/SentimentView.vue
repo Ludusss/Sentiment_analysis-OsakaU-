@@ -4,20 +4,21 @@
     <div class="flex flex-column">
       <prime-button v-if="!recording" :label="label" @click="startRecording" />
       <prime-button v-else label="stop" @click="stopRecording" />
+      <audio-recorder
+        upload-url="some url"
+        :attempts="3"
+        :time="2"/>
     </div>
     <div v-if="transcription != ''" class="flex flex-column align-items-center">
       <h2 v-if="transcription != '***Transcription failed***'">Transcription:</h2>
-      <p>{{ transcription }}</p>
+      <p :style="sentiment == 'Positive' ? 'color: green' : sentiment == 'Negative' ? 'color: red' : 'color: black'">{{ transcription }}</p>
     </div>
     <div v-if="sentiment != 'null'" class="flex flex-column align-items-center mt-4">
       <h2>Your Sentiment:</h2>
-      <img v-if="sentiment == 'Happy'" src="../assets/happy.png" alt="Happy" width="120" height="120" />
       <img v-if="sentiment == 'Positive'" src="../assets/happy.png" alt="Positive" width="120" height="120" />
-      <img v-if="sentiment == 'Angry'" src="../assets/angry.png" alt="Angry" width="120" height="120" />
       <img v-if="sentiment == 'Negative'" src="../assets/angry.png" alt="Negative" width="120" height="120" />
       <img v-if="sentiment == 'Neutral'" src="../assets/neutral.png" alt="Neutral" width="120" height="120" />
-      <img v-if="sentiment == 'Sad'" src="../assets/sad.png" alt="Sad" />
-      <p>{{ sentimentText }}</p>
+      <p :style="sentiment == 'Positive' ? 'color: green' : sentiment == 'Negative' ? 'color: red' : 'color: black'">{{ sentimentText }}</p>
     </div>
   </div>
 </template>
@@ -25,6 +26,8 @@
 <script>
 import { ref } from "vue";
 import axios from "axios";
+import getBlobDuration from 'get-blob-duration'
+import fixWebmDuration from "fix-webm-duration"
 
 export default {
   name: "SentimentView",
@@ -54,7 +57,7 @@ export default {
               audioRecorder.streamBeingCaptured = stream;
               const options = {
                 audioBitsPerSecond: 128000,
-                mimeType: "audio/webm;codecs=opus",
+                mimeType: "audio/webm;codec=opus",
               };
               audioRecorder.mediaRecorder = new MediaRecorder(stream, options);
 
@@ -75,14 +78,15 @@ export default {
         return new Promise((resolve) => {
           let mimeType = audioRecorder.mediaRecorder.mimeType;
 
-          audioRecorder.mediaRecorder.addEventListener("stop", () => {
+          audioRecorder.mediaRecorder.addEventListener("stop", async () => {
             let audioBlob = new Blob(audioRecorder.audioBlobs, {
               type: mimeType,
             });
-
-            resolve(audioBlob);
+            const duration = await getBlobDuration(audioBlob)
+            fixWebmDuration(audioBlob, duration, {logger: false}).then((function(fixedBlob){
+              resolve(fixedBlob)
+            }))
           });
-
           audioRecorder.cancel();
         });
       },
@@ -167,7 +171,7 @@ export default {
         .then((audioAsblob) => {
           console.log("stopped with audio Blob:", audioAsblob);
           let data = new FormData();
-          data.append("test", audioAsblob, "test.wav");
+          data.append("test", audioAsblob, "test.webm");
           axios
             .post("http://localhost:5000/sentiment", data, {
               header: {

@@ -7,17 +7,18 @@ import os
 from torch.optim.lr_scheduler import StepLR
 
 from model import MLP
-from utils import process_ESD_features, gen_batches_mlp
+from utils import process_ESD_features, gen_batches_mlp, report_acc_mlp
 import numpy as np
 
 DEVICE = torch.device("cpu")
 CLASSES = 3
 DIR = os.getcwd()
-EPOCHS = 30
+EPOCHS = 100
+
 
 def define_model(trial):
     # We optimize the number of layers, hidden units and dropout ratio in each layer.
-    n_layers = trial.suggest_int("n_layers", 1, 4)
+    n_layers = trial.suggest_int("n_layers", 1, 3)
     layers = []
 
     in_features = 33
@@ -30,8 +31,6 @@ def define_model(trial):
         in_features = out_features
 
     layers.append(nn.Linear(in_features, CLASSES))
-    layers.append(nn.Softmax(dim=1))
-
     return nn.Sequential(*layers)
 
 
@@ -42,7 +41,7 @@ def objective(trial):
     # Generate the optimizers.
     lr = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    lr_decay = trial.suggest_float("lr_decay", 0.1, 0.99, log=True)
+    lr_decay = trial.suggest_float("lr_decay", 0.7, 0.99, log=True)
     scheduler = StepLR(optimizer, step_size=1, gamma=lr_decay)
 
     # Criterion
@@ -52,9 +51,7 @@ def objective(trial):
     audio_train, audio_labels_train, audio_test, audio_labels_test, audio_val, audio_labels_val = process_ESD_features()
 
     # Batch and epochs optimization
-    batch_size = trial.suggest_int("batch_size", 1, audio_train.shape[0])
-
-
+    batch_size = trial.suggest_int("batch_size", 2, 128)
 
     # Training of the model.
     for epoch in range(EPOCHS):
@@ -77,27 +74,18 @@ def objective(trial):
 
         # Validation of the model.
         model.eval()
-        correct = 0
         with torch.no_grad():
-            for batch_idx, (data, target) in enumerate(valid_loader):
-                # Limiting validation data.
-                if batch_idx * BATCHSIZE >= N_VALID_EXAMPLES:
-                    break
-                data, target = data.view(data.size(0), -1).to(DEVICE), target.to(DEVICE)
-                output = model(data)
-                # Get the index of the max log-probability.
-                pred = output.argmax(dim=1, keepdim=True)
-                correct += pred.eq(target.view_as(pred)).sum().item()
+            output_val_audio = torch.softmax(model(torch.Tensor(audio_val).to(DEVICE)), dim=1)
+            acc_val_audio, f1_val_audio, _, _ = report_acc_mlp(
+                output_val_audio, torch.Tensor(audio_labels_val).to(DEVICE))
 
-        accuracy = correct / min(len(valid_loader.dataset), N_VALID_EXAMPLES)
-
-        trial.report(accuracy, epoch)
+        trial.report(f1_val_audio, epoch)
 
         # Handle pruning based on the intermediate value.
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
 
-    return accuracy
+    return f1_val_audio
 
 
 if __name__ == "__main__":

@@ -44,7 +44,7 @@ class MLP(nn.Module):
 
         self.fc = nn.Linear(self.input_feature_size, self.hidden_size)
         self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(0.31594518835172963)
         self.fc1 = nn.Linear(self.hidden_size, self.n_classes)
 
     def forward(self, x):

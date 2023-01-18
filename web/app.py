@@ -12,6 +12,8 @@ import numpy as np
 import librosa
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import moviepy.editor as moviepy
+from sklearn import preprocessing
+import time
 
 
 
@@ -20,7 +22,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 # Paths
 UPLOAD_FOLDER = '../recordings'
-WAV_FILE_PATH = "../recordings/test.wav"
+WEBM_FILE_PATH = "../recordings/test.webm"
 BUCKET_NAME = "ludus_sentiment-analysis"
 SAMP_RATE = 22050
 
@@ -37,10 +39,14 @@ sentiment = SentimentIntensityAnalyzer()
 """model_text = LSTM1(input_feature_size=768, hidden_size=128, n_classes=4, n_layers=1, device=device)
 text_model_info = torch.load("../saved_models/text_lstm/4_model_acc_67.44.t")"""
 
-model_audio = MLP(input_feature_size=33, hidden_size=128, n_classes=3, n_layers=1, device=device)
-audio_model_info = torch.load("../saved_models/audio_mlp/ESD/3_model_ESD_acc_83.85.a")
+model_audio = MLP(input_feature_size=33, hidden_size=118, n_classes=3, n_layers=1, device=device)
+audio_model_info = torch.load("../saved_models/audio_mlp/ESD/3_model_ESD_acc_84.85.a")
+model_audio.load_state_dict(audio_model_info['model_state_dict'])
 model_audio.eval()
 model_audio.zero_grad()
+
+mean_arr = np.genfromtxt("../useful_variables/train/train_mean.csv")
+variance_arr = np.genfromtxt("../useful_variables/train/train_variance.csv")
 
 # Initialize app
 app = Flask(__name__)
@@ -77,8 +83,8 @@ def get_sentiment():
     file = request.files.get("test")
     filename = secure_filename(file.filename)
     file.save(os.path.join(UPLOAD_FOLDER, filename))
-    upload_blob(BUCKET_NAME, WAV_FILE_PATH, WAV_FILE_PATH.split("/")[-1])
-    audio = speech.RecognitionAudio(uri="gs://ludus_sentiment-analysis/test.wav")
+    upload_blob(BUCKET_NAME, WEBM_FILE_PATH, WEBM_FILE_PATH.split("/")[-1])
+    audio = speech.RecognitionAudio(uri="gs://ludus_sentiment-analysis/test.webm")
 
     config = speech.RecognitionConfig(
         encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
@@ -106,20 +112,21 @@ def get_sentiment():
     output_label = get_text_emotion(np.argmax(sentiment_scores))
 
     if output_label == "Neutral":
-        clip = moviepy.VideoFileClip(WAV_FILE_PATH)
-        clip.write_audiofile(WAV_FILE_PATH)
         audio_input = []
-        y, _sr = librosa.load(WAV_FILE_PATH, sr=SAMP_RATE)
+        y, _sr = librosa.load(WEBM_FILE_PATH, sr=SAMP_RATE)
         f0, _, _ = librosa.pyin(y, fmin=librosa.note_to_hz('C0'),
                                 fmax=librosa.note_to_hz('C5'))
         if np.isnan(f0).all():  # If pitch extraction fails discard utterance
-            print("hej")
+            print("***Librosa failed to extract audio features using text predicted label***")
             return output_label, sentence
         mfcc = librosa.feature.mfcc(y=y, sr=SAMP_RATE)
         chroma_cq = librosa.feature.chroma_cqt(y=y, sr=SAMP_RATE, fmin=librosa.note_to_hz('C2'), bins_per_octave=24)
         audio_input.append(np.nanmean(f0))
         audio_input.extend(np.mean(mfcc, axis=1))
         audio_input.extend(np.mean(chroma_cq, axis=1))
+        audio_input = np.array(audio_input)
+        audio_input = np.divide(np.subtract(audio_input, mean_arr), variance_arr).reshape(1, -1)
+        print(audio_input)
         print(model_audio(torch.Tensor(audio_input)))
         output = torch.softmax(model_audio(torch.Tensor(audio_input)), dim=1)
         output_label = torch.argmax(output[0])
