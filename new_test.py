@@ -349,9 +349,9 @@ def main():
         model_audio.load_state_dict(audio_model_info['model_state_dict'])
         for name, param in model_audio.state_dict().items():
             if name == "fc.weight":
-                param[:][0] = param[:][0] + 0.23364777586901642
+                param[:][0] = param[:][0] + 0.19045114591335294   # 0.23364777586901642 tuned on test
             if name == "fc1.weight":
-                param[:][0] = param[:][0] + 0.012529474944793237
+                param[:][0] = param[:][0] + 0.014296908872680062    # 0.012529474944793237 tuned on test
         model_audio.eval()
         with torch.no_grad():
             output_test = model_audio(torch.Tensor(np.array(audio_test)).to(device))

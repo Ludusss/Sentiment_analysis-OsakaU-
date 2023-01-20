@@ -30,8 +30,8 @@ def objective(trial):
 
     model.eval()
     with torch.no_grad():
-        output_test = model(torch.Tensor(np.array(audio_test)).to(DEVICE))
-        acc_test, f1_test, conf_matrix, classify_report = report_acc_mlp(output_test, torch.Tensor(audio_labels_test).to(DEVICE))
+        output_val = model(torch.Tensor(np.array(audio_val)).to(DEVICE))
+        acc_test, f1_test, conf_matrix, classify_report = report_acc_mlp(output_val, torch.Tensor(audio_labels_val).to(DEVICE))
 
     return acc_test
 
