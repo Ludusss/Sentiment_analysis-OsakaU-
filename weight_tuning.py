@@ -1,3 +1,5 @@
+import time
+
 import optuna
 
 from model import MLP
@@ -6,9 +8,11 @@ import numpy as np
 from utils import process_ESD_features, report_acc_mlp
 from optuna.trial import TrialState
 
+
 DEVICE = torch.device("cpu")
 audio_train, audio_labels_train, audio_test, audio_labels_test, audio_val, audio_labels_val = process_ESD_features()
 
+time.sleep(1000)
 
 def objective(trial):
     # Generate the model.

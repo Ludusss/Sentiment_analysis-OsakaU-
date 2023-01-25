@@ -43,9 +43,9 @@ audio_model_info = torch.load("../saved_models/audio_mlp/ESD/3_model_ESD_acc_84.
 model_audio.load_state_dict(audio_model_info['model_state_dict'])
 for name, param in model_audio.state_dict().items():
     if name == "fc.weight":
-        param[:][0] = param[:][0] + 0.19045114591335294  # 0.23364777586901642 tuned on test
+        param[:][0] = param[:][0] #+ 0.19045114591335294  # 0.23364777586901642 tuned on test
     if name == "fc1.weight":
-        param[:][0] = param[:][0] + 0.014296908872680062  # 0.012529474944793237 tuned on test
+        param[:][0] = param[:][0] #+ 0.014296908872680062  # 0.012529474944793237 tuned on test
 model_audio.eval()
 model_audio.zero_grad()
 
@@ -116,16 +116,16 @@ def get_sentiment_upload():
     print(output)
     print(sentence)
     sentiment_scores = np.array([output["neg"], output["neu"], output["pos"]])
-    output_label = get_text_emotion(np.argmax(sentiment_scores))
+    output_label_text = get_text_emotion(np.argmax(sentiment_scores))
 
-    if output_label == "Neutral":
+    if output_label_text == "Neutral":
         audio_input = []
         y, _sr = librosa.load(WAV_FILE_PATH, sr=SAMP_RATE)
         f0, _, _ = librosa.pyin(y, fmin=librosa.note_to_hz('C0'),
                                 fmax=librosa.note_to_hz('C5'))
         if np.isnan(f0).all():  # If pitch extraction fails discard utterance
             print("***Librosa failed to extract audio features using text predicted label***")
-            return output_label, sentence
+            return [output_label_text, "fail"], sentence
         mfcc = librosa.feature.mfcc(y=y, sr=SAMP_RATE)
         chroma_cq = librosa.feature.chroma_cqt(y=y, sr=SAMP_RATE, fmin=librosa.note_to_hz('C2'), bins_per_octave=24)
         audio_input.append(np.nanmean(f0))
@@ -137,9 +137,10 @@ def get_sentiment_upload():
         print(model_audio(torch.Tensor(audio_input)))
         output = torch.softmax(model_audio(torch.Tensor(audio_input)), dim=1)
         output_label = torch.argmax(output[0])
-        return get_audio_emotion_3(output_label.item()), sentence
+        return [output_label_text, get_audio_emotion_3(output_label.item())], sentence
     else:
-        return output_label, sentence
+        return [output_label_text, "not used"], sentence
+
 @app.route('/sentiment', methods=(['POST']))
 def get_sentiment():
     file = request.files.get("test")
@@ -171,16 +172,16 @@ def get_sentiment():
     print(output)
     print(sentence)
     sentiment_scores = np.array([output["neg"], output["neu"], output["pos"]])
-    output_label = get_text_emotion(np.argmax(sentiment_scores))
+    output_label_text = get_text_emotion(np.argmax(sentiment_scores))
 
-    if output_label == "Neutral":
+    if output_label_text == "Neutral":
         audio_input = []
         y, _sr = librosa.load(WEBM_FILE_PATH, sr=SAMP_RATE)
         f0, _, _ = librosa.pyin(y, fmin=librosa.note_to_hz('C0'),
                                 fmax=librosa.note_to_hz('C5'))
         if np.isnan(f0).all():  # If pitch extraction fails discard utterance
             print("***Librosa failed to extract audio features using text predicted label***")
-            return output_label, sentence
+            return [output_label_text, "fail"], sentence
         mfcc = librosa.feature.mfcc(y=y, sr=SAMP_RATE)
         chroma_cq = librosa.feature.chroma_cqt(y=y, sr=SAMP_RATE, fmin=librosa.note_to_hz('C2'), bins_per_octave=24)
         audio_input.append(np.nanmean(f0))
@@ -191,7 +192,7 @@ def get_sentiment():
         print(audio_input)
         print(model_audio(torch.Tensor(audio_input)))
         output = torch.softmax(model_audio(torch.Tensor(audio_input)), dim=1)
-        output_label = torch.argmax(output[0])
-        return get_audio_emotion_3(output_label.item()), sentence
+        output_label_audio = torch.argmax(output[0])
+        return [output_label_text, get_audio_emotion_3(output_label_audio.item())], sentence
     else:
-        return output_label, sentence
+        return [output_label_text, "not used"], sentence
