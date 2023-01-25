@@ -8,11 +8,16 @@
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
+    "audio-recorder-vue": "^3.0.2",
+    "axios": "^1.2.3",
     "core-js": "^3.8.3",
+    "fix-webm-duration": "^1.0.5",
+    "get-blob-duration": "^1.2.0",
     "primeflex": "^3.3.0",
     "primeicons": "^6.0.1",
     "primevue": "^3.19.0",
-    "vue": "^3.2.13"
+    "vue": "^3.2.13",
+    "vue-audio-recorder": "^3.0.1"
   },
   "devDependencies": {
     "@babel/core": "^7.12.16",
