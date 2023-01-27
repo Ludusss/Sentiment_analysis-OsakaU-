@@ -227,11 +227,11 @@ def extract_ESD_audio_features():
     start_sess = 11
 
     if platform == "darwin":
-        if os.path.isfile("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/ESD/ESD_audio_features_11.csv"):
+        if os.path.isfile("/extracted_data/ESD/male_features/ESD_audio_features_11.csv"):
             print("Loaded ESD audio features")
             df_features = pd.read_csv("extracted_data/ESD/ESD_audio_features_combined.csv")
             return df_features
-        elif os.path.isfile("/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/ESD/ESD_audio_features_11.csv"):
+        elif os.path.isfile("/extracted_data/ESD/male_features/ESD_audio_features_11.csv"):
             feature_dir = "Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/ESD/"
             features_files = os.listdir(feature_dir)
             for features_file in features_files:

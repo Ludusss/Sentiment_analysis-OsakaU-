@@ -60,7 +60,6 @@ def main():
 
     #text_train, text_labels_train, text_test, text_labels_test, text_val, text_labels_val = process_twitter()   # Text data
     audio_train, audio_labels_train, audio_test, audio_labels_test, audio_val, audio_labels_val = process_ESD_features(args.use_quad_classes)   # Audio data
-
     # Initialize Tensors for train, val and test sets
     """text_target_train = torch.Tensor(text_labels_train).to(device)
     text_target_val = torch.Tensor(text_labels_val).to(device)
@@ -345,8 +344,10 @@ def main():
         if args.use_quad_classes:
             audio_model_info = torch.load("saved_models/audio_lstm/ESD/4_model_ESD_acc_74.97.a")
         else:
-            audio_model_info = torch.load("saved_models/audio_mlp/ESD/3_model_ESD_acc_84.85.a")
+            audio_model_info = torch.load("saved_models/audio_mlp/ESD/3_model_ESD_acc_84.56.M.a")
         model_audio.load_state_dict(audio_model_info['model_state_dict'])
+        #audio_test = np.genfromtxt("./extracted_data/ESD/ESD_excluded_features.txt")
+        #audio_target_test = np.genfromtxt("./extracted_data/ESD/ESD_excluded_labels.txt")
         for name, param in model_audio.state_dict().items():
             if name == "fc.weight":
                 param[:][0] = param[:][0] + 0.19045114591335294   # 0.23364777586901642 tuned on test
