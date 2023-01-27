@@ -39,13 +39,13 @@ sentiment = SentimentIntensityAnalyzer()
 text_model_info = torch.load("../saved_models/text_lstm/4_model_acc_67.44.t")"""
 
 model_audio = MLP(input_feature_size=33, hidden_size=118, n_classes=3, n_layers=1, device=device)
-audio_model_info = torch.load("../saved_models/audio_mlp/ESD/3_model_ESD_acc_84.85.a")
+audio_model_info = torch.load("../saved_models/audio_mlp/ESD/3_model_ESD_acc_84.56.M.a")
 model_audio.load_state_dict(audio_model_info['model_state_dict'])
 for name, param in model_audio.state_dict().items():
     if name == "fc.weight":
-        param[:][0] = param[:][0] #+ 0.19045114591335294  # 0.23364777586901642 tuned on test
+        param[:][0] = param[:][0] + 0.19045114591335294  # 0.23364777586901642 tuned on test
     if name == "fc1.weight":
-        param[:][0] = param[:][0] #+ 0.014296908872680062  # 0.012529474944793237 tuned on test
+        param[:][0] = param[:][0] + 0.014296908872680062  # 0.012529474944793237 tuned on test
 model_audio.eval()
 model_audio.zero_grad()
 
