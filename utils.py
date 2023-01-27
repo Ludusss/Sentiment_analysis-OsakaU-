@@ -80,10 +80,9 @@ def process_ESD_features(quad_class=False):
     feature_dir = "/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/ESD/male_features/"
     features_files = os.listdir(feature_dir)
     for i, features_file in enumerate(features_files):
-        if i == 0:
+        if i == 4:
             df_features_test = pd.concat([df_features_test, pd.read_csv(feature_dir + features_file)])
-        else:
-            df_features = pd.concat([df_features, pd.read_csv(feature_dir + features_file)])
+        df_features = pd.concat([df_features, pd.read_csv(feature_dir + features_file)])
 
     #audio_features = pd.read_csv("extracted_data/ESD/ESD_audio_features_combined.csv")
     audio_features = df_features
@@ -144,18 +143,18 @@ def process_ESD_features(quad_class=False):
         X_train.append(np.hstack((f0, mfcc, cqt)))
 
     for feature_row in test_features.values:
-        y_test_excluded.append(feature_row[0])
+        y_test.append(feature_row[0])
         f0 = feature_row[1]
         mfcc = np.fromstring(feature_row[2].replace("\n", "")[1:-1], sep=" ")
         cqt = np.fromstring(feature_row[3].replace("\n", "")[1:-1], sep=" ")
-        X_test_excluded.append(np.hstack((f0, mfcc, cqt)))
+        X_test.append(np.hstack((f0, mfcc, cqt)))
 
     for feature_row in test_features_excluded.values:
-        y_test.append(feature_row[1])
+        y_test_excluded.append(feature_row[1])
         f0 = feature_row[2]
         mfcc = np.fromstring(feature_row[3].replace("\n", "")[1:-1], sep=" ")
         cqt = np.fromstring(feature_row[4].replace("\n", "")[1:-1], sep=" ")
-        X_test.append(np.hstack((f0, mfcc, cqt)))
+        X_test_excluded.append(np.hstack((f0, mfcc, cqt)))
 
     for feature_row in val_features.values:
         y_val.append(feature_row[0])
@@ -190,8 +189,9 @@ def process_ESD_features(quad_class=False):
     scaled_test_excluded = preprocessing.StandardScaler().fit_transform(X_test_excluded)
     scaled_val = preprocessing.StandardScaler().fit_transform(X_val)
 
-    #np.savetxt("./extracted_data/ESD/ESD_excluded_features.txt", scaled_test_excluded)
-    #np.savetxt("./extracted_data/ESD/ESD_excluded_labels.txt", y_test_excluded)
+    """np.savetxt("./extracted_data/ESD/ESD_excluded_features4.txt", scaled_test_excluded)
+    np.savetxt("./extracted_data/ESD/ESD_excluded_labels4.txt", y_test_excluded)
+    time.sleep(1000)"""
     return scaled_train, y_train, scaled_test, y_test, scaled_val, y_val
 
 def process_twitter():

@@ -39,7 +39,7 @@ sentiment = SentimentIntensityAnalyzer()
 text_model_info = torch.load("../saved_models/text_lstm/4_model_acc_67.44.t")"""
 
 model_audio = MLP(input_feature_size=33, hidden_size=118, n_classes=3, n_layers=1, device=device)
-audio_model_info = torch.load("../saved_models/audio_mlp/ESD/3_model_ESD_acc_84.85.a")
+audio_model_info = torch.load("../saved_models/audio_mlp/ESD/3_model_ESD_acc_84.56.M.a")
 model_audio.load_state_dict(audio_model_info['model_state_dict'])
 for name, param in model_audio.state_dict().items():
     if name == "fc.weight":
@@ -181,7 +181,7 @@ def get_sentiment():
                                 fmax=librosa.note_to_hz('C5'))
         if np.isnan(f0).all():  # If pitch extraction fails discard utterance
             print("***Librosa failed to extract audio features using text predicted label***")
-            return [output_label_text, "fail"], sentence
+            return [output_label_text, "Failed"], sentence
         mfcc = librosa.feature.mfcc(y=y, sr=SAMP_RATE)
         chroma_cq = librosa.feature.chroma_cqt(y=y, sr=SAMP_RATE, fmin=librosa.note_to_hz('C2'), bins_per_octave=24)
         audio_input.append(np.nanmean(f0))

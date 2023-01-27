@@ -12,11 +12,9 @@ from optuna.trial import TrialState
 DEVICE = torch.device("cpu")
 audio_train, audio_labels_train, audio_test, audio_labels_test, audio_val, audio_labels_val = process_ESD_features()
 
-time.sleep(1000)
-
 def objective(trial):
     # Generate the model.
-    audio_model_info = torch.load("saved_models/audio_mlp/ESD/3_model_ESD_acc_84.85.a")
+    audio_model_info = torch.load("saved_models/audio_mlp/ESD/3_model_ESD_acc_84.56.M.a")
     model = MLP(input_feature_size=33, hidden_size=118, n_classes=3,
                       n_layers=1, device=DEVICE)
     model.load_state_dict(audio_model_info['model_state_dict'])
@@ -34,8 +32,8 @@ def objective(trial):
 
     model.eval()
     with torch.no_grad():
-        output_val = model(torch.Tensor(np.array(audio_val)).to(DEVICE))
-        acc_test, f1_test, conf_matrix, classify_report = report_acc_mlp(output_val, torch.Tensor(audio_labels_val).to(DEVICE))
+        output_val = model(torch.Tensor(np.array(audio_train)).to(DEVICE))
+        acc_test, f1_test, conf_matrix, classify_report = report_acc_mlp(output_val, torch.Tensor(audio_labels_train).to(DEVICE))
 
     return acc_test
 

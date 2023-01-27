@@ -35,7 +35,7 @@ def main():
                         help='dimension of fc layer in text model (default: 200)')
     parser.add_argument('--n_epochs_audio', type=int, default=35,
                         help='number of epochs audio model (default: 100)')
-    parser.add_argument('--hidden_size_audio', type=int, default=128,
+    parser.add_argument('--hidden_size_audio', type=int, default=118,
                         help='dimension of hidden layer in audio model (default: 128)')
     parser.add_argument('--n_layers_audio', type=int, default=1,
                         help='number of hidden layers audio model (default: 1)')
@@ -43,8 +43,8 @@ def main():
                         help='batch size audio model (default: 32)')
     parser.add_argument('--save_model_threshold_text', type=float, default=63,
                         help='threshold for saving text model (default: 63)')
-    parser.add_argument('--save_model_threshold_audio', type=float, default=83,
-                        help='threshold for saving audio model (default: 83)')
+    parser.add_argument('--save_model_threshold_audio', type=float, default=86,
+                        help='threshold for saving audio model (default: 86)')
     parser.add_argument('--use_pretrained', type=bool, default=True,
                         help='Use pretrained model (default: False)')
     parser.add_argument('--use_pretrained_text', type=bool, default=True,
@@ -60,6 +60,7 @@ def main():
 
     #text_train, text_labels_train, text_test, text_labels_test, text_val, text_labels_val = process_twitter()   # Text data
     audio_train, audio_labels_train, audio_test, audio_labels_test, audio_val, audio_labels_val = process_ESD_features(args.use_quad_classes)   # Audio data
+
     # Initialize Tensors for train, val and test sets
     """text_target_train = torch.Tensor(text_labels_train).to(device)
     text_target_val = torch.Tensor(text_labels_val).to(device)
@@ -350,13 +351,13 @@ def main():
         #audio_target_test = np.genfromtxt("./extracted_data/ESD/ESD_excluded_labels.txt")
         for name, param in model_audio.state_dict().items():
             if name == "fc.weight":
-                param[:][0] = param[:][0] + 0.19045114591335294   # 0.23364777586901642 tuned on test
+                param[:][0] = param[:][0] #+ 0.19045114591335294   # 0.23364777586901642 tuned on test
             if name == "fc1.weight":
-                param[:][0] = param[:][0] + 0.014296908872680062    # 0.012529474944793237 tuned on test
+                param[:][0] = param[:][0] #+ 0.014296908872680062    # 0.012529474944793237 tuned on test
         model_audio.eval()
         with torch.no_grad():
             output_test = model_audio(torch.Tensor(np.array(audio_test)).to(device))
-            acc_test, f1_test, conf_matrix, classify_report = report_acc_mlp(output_test, audio_target_test)
+            acc_test, f1_test, conf_matrix, classify_report = report_acc_mlp(output_test, torch.Tensor(audio_target_test))
 
             print("Accuracy of audio model loaded: {:.2f}%".format(acc_test))
             print(classify_report)
