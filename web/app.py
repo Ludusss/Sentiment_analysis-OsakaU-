@@ -95,7 +95,7 @@ def get_sentiment_upload():
 
     config = speech.RecognitionConfig(
         encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-        sample_rate_hertz=SAMP_RATE_UPLOAD,
+        sample_rate_hertz=44100,
         language_code="en-US",
     )
 
