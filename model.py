@@ -34,7 +34,7 @@ class MLP_2(nn.Module):
 
 
 class MLP(nn.Module):
-    def __init__(self, input_feature_size, hidden_size, n_classes, n_layers, device):
+    def __init__(self, input_feature_size, hidden_size, n_classes, n_layers, device, p=0.2554070776341251):
         super(MLP, self).__init__()
         self.input_feature_size = input_feature_size
         self.hidden_size = hidden_size
@@ -44,7 +44,7 @@ class MLP(nn.Module):
 
         self.fc = nn.Linear(self.input_feature_size, self.hidden_size)
         self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(0.31594518835172963)
+        self.dropout = nn.Dropout(p)
         self.fc1 = nn.Linear(self.hidden_size, self.n_classes)
 
     def forward(self, x):

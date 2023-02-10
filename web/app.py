@@ -32,7 +32,7 @@ from model import LSTM, LSTM1, MLP
 # Initialize models
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 client = speech.SpeechClient()    # Connect to google asr
-#bert = SentenceTransformer('all-mpnet-base-v2')    # Load s-bert model for text feature extractions
+#bert = SentenceTransformer('all_features-mpnet-base-v2')    # Load s-bert model for text feature extractions
 sentiment = SentimentIntensityAnalyzer()
 
 """model_text = LSTM1(input_feature_size=768, hidden_size=128, n_classes=4, n_layers=1, device=device)

@@ -40,11 +40,8 @@ def report_acc(output, target, mask):
 
 
 def gen_batches_mlp(features, labels, batch_size):
-    permutation = torch.randperm(len(features))
-
     for i in range(0, len(features), batch_size):
-        indices = permutation[i:i + batch_size]
-        yield zip(features[indices], labels[indices])
+        yield zip(features[i:min(i + batch_size, len(features))], labels[i:min(i + batch_size, len(labels))])
 
 
 def gen_batches(features, labels, mask, batch_size):
@@ -55,7 +52,7 @@ def gen_batches(features, labels, mask, batch_size):
         yield zip(features[indices], labels[indices], mask[indices])
 
 
-def process_ESD_features(quad_class=False):
+def process_ESD_features(quad_class=False, k=0):
     emo_dict = {
         "Angry": 0,
         "Happy": 1,
@@ -77,15 +74,17 @@ def process_ESD_features(quad_class=False):
     df_features = pd.DataFrame(columns=columns)
     df_features_test = pd.DataFrame(columns=columns)
 
-    feature_dir = "/Users/ludus/Projects/Sentiment_analysis-OsakaU-/extracted_data/ESD/male_features/"
+    feature_dir = "./extracted_data/ESD/male_features/"
     features_files = os.listdir(feature_dir)
     for i, features_file in enumerate(features_files):
-        if i == 4:
+        if i == k:
             df_features_test = pd.concat([df_features_test, pd.read_csv(feature_dir + features_file)])
-        df_features = pd.concat([df_features, pd.read_csv(feature_dir + features_file)])
+        else:
+            df_features = pd.concat([df_features, pd.read_csv(feature_dir + features_file)])
 
     #audio_features = pd.read_csv("extracted_data/ESD/ESD_audio_features_combined.csv")
     audio_features = df_features
+    audio_features_test = df_features_test
     """labels = []
     X = []
     for feature_row in audio_features.values:
@@ -104,31 +103,43 @@ def process_ESD_features(quad_class=False):
         ax.scatter(X_r[ix[0][0:50], 0], X_r[ix[0][0:50], 1], X_r[ix[0][0:50], 2], c=cdict[g], label=g, s=100)
     ax.legend()
     plt.show()"""
-    neutral_samples = audio_features.label.value_counts()[2]
-    oversampled_neutral = audio_features[audio_features["label"] == 2].sample(neutral_samples)
-    audio_features = pd.concat([audio_features, oversampled_neutral], axis=0)
-    #audio_features = audio_features.sample(frac=1)  # Shuffle features
-    train_features = audio_features.loc[audio_features['set'] == "train"]
+
+    if not quad_class:
+        # oversampling for audio features (train/validation)
+        neutral_samples = audio_features.label.value_counts()[2]
+        oversampled_neutral = audio_features[audio_features["label"] == 2].sample(neutral_samples)
+        audio_features = pd.concat([audio_features, oversampled_neutral], axis=0)
+
+        # oversampling for audio features (test)
+        neutral_samples_test = audio_features_test.label.value_counts()[2]
+        oversampled_neutral_test = audio_features_test[audio_features_test["label"] == 2].sample(neutral_samples_test)
+        audio_features_test = pd.concat([audio_features_test, oversampled_neutral_test], axis=0)
+
+    audio_features = audio_features.sample(frac=1)  # Shuffle features
+    audio_features_test = audio_features_test.sample(frac=1)  # shuffle features
+
+    train_features = audio_features.loc[audio_features['set'].isin(["train"])]
     train_features = train_features.drop(['set'], axis=1)
-    test_features = audio_features.loc[audio_features['set'] == "test"]
+
+    test_features = audio_features.loc[audio_features['set'].isin(["test"])]
     test_features = test_features.drop(['set'], axis=1)
-    test_features_excluded = df_features_test
-    val_features = audio_features.loc[audio_features['set'] == "val"]
+
+    test_features_excluded = audio_features_test
+    test_features_excluded = test_features_excluded.drop(['set'], axis=1)
+
+    val_features = audio_features.loc[audio_features['set'].isin(["val"])]
     val_features = val_features.drop(['set'], axis=1)
 
     if quad_class:
         train_features = train_features[train_features.label != 4]
-        test_features = train_features[train_features.label != 4]
-        val_features = train_features[train_features.label != 4]
+        test_features = test_features[test_features.label != 4]
+        test_features_excluded = test_features_excluded[test_features_excluded.label != 4]
+        val_features = val_features[val_features.label != 4]
+
         train_features['label'] = train_features['label'].replace([2, 3], [3, 2])
-        test_features['label'] = train_features['label'].replace([2, 3], [3, 2])
-        val_features['label'] = train_features['label'].replace([2, 3], [3, 2])
-        """
-        "Angry": 0,
-        "Happy": 1,
-        "Sad": 2,
-        "Neutral": 3,
-        """
+        test_features['label'] = test_features['label'].replace([2, 3], [3, 2])
+        test_features_excluded['label'] = test_features_excluded['label'].replace([2, 3], [3, 2])
+        val_features['label'] = val_features['label'].replace([2, 3], [3, 2])
     else:
         train_features['label'] = train_features['label'].replace([3, 4], [0, 1])
         test_features['label'] = test_features['label'].replace([3, 4], [0, 1])
@@ -150,10 +161,10 @@ def process_ESD_features(quad_class=False):
         X_test.append(np.hstack((f0, mfcc, cqt)))
 
     for feature_row in test_features_excluded.values:
-        y_test_excluded.append(feature_row[1])
-        f0 = feature_row[2]
-        mfcc = np.fromstring(feature_row[3].replace("\n", "")[1:-1], sep=" ")
-        cqt = np.fromstring(feature_row[4].replace("\n", "")[1:-1], sep=" ")
+        y_test_excluded.append(feature_row[0])
+        f0 = feature_row[1]
+        mfcc = np.fromstring(feature_row[2].replace("\n", "")[1:-1], sep=" ")
+        cqt = np.fromstring(feature_row[3].replace("\n", "")[1:-1], sep=" ")
         X_test_excluded.append(np.hstack((f0, mfcc, cqt)))
 
     for feature_row in val_features.values:
@@ -167,6 +178,7 @@ def process_ESD_features(quad_class=False):
     X_test = np.array(X_test)
     X_test_excluded = np.array(X_test_excluded)
     X_val = np.array(X_val)
+
     y_train = np.array(y_train)
     y_test = np.array(y_test)
     y_test_excluded = np.array(y_test_excluded)
@@ -192,7 +204,7 @@ def process_ESD_features(quad_class=False):
     """np.savetxt("./extracted_data/ESD/ESD_excluded_features4.txt", scaled_test_excluded)
     np.savetxt("./extracted_data/ESD/ESD_excluded_labels4.txt", y_test_excluded)
     time.sleep(1000)"""
-    return scaled_train, y_train, scaled_test, y_test, scaled_val, y_val
+    return scaled_train, y_train, scaled_test_excluded, y_test_excluded, scaled_val, y_val
 
 def process_twitter():
     emo_dict_sample = {
