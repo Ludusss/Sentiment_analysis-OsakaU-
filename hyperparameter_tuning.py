@@ -11,27 +11,20 @@ from utils import process_ESD_features, gen_batches_mlp, report_acc_mlp
 import numpy as np
 
 DEVICE = torch.device("cpu")
-CLASSES = 3
+CLASSES = 4
 DIR = os.getcwd()
 EPOCHS = 100
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def define_model(trial):
     # We optimize the number of layers, hidden units and dropout ratio in each layer.
-    n_layers = trial.suggest_int("n_layers", 1, 3)
-    layers = []
-
     in_features = 33
-    for i in range(n_layers):
-        out_features = trial.suggest_int("n_units_l{}".format(i), 4, 128)
-        layers.append(nn.Linear(in_features, out_features))
-        layers.append(nn.ReLU())
-        p = trial.suggest_float("dropout_l{}".format(i), 0.2, 0.5)
-        layers.append(nn.Dropout(p))
-        in_features = out_features
-
-    layers.append(nn.Linear(in_features, CLASSES))
-    return nn.Sequential(*layers)
+    out_features = trial.suggest_int("n_units", 1, 200)
+    p = trial.suggest_float("dropout", 0.2, 0.5)
+    model = MLP(input_feature_size=in_features, hidden_size=out_features, n_classes=4,
+                n_layers=1, device=device, p=p)
+    return model
 
 
 def objective(trial):
@@ -48,10 +41,10 @@ def objective(trial):
     criterion = nn.CrossEntropyLoss()
 
     # Get the audio data
-    audio_train, audio_labels_train, audio_test, audio_labels_test, audio_val, audio_labels_val = process_ESD_features()
+    audio_train, audio_labels_train, audio_test, audio_labels_test, audio_val, audio_labels_val = process_ESD_features(quad_class=True, k=1)
 
     # Batch and epochs optimization
-    batch_size = trial.suggest_int("batch_size", 2, 128)
+    batch_size = trial.suggest_int("batch_size", 2, 500)
 
     # Training of the model.
     for epoch in range(EPOCHS):
@@ -79,13 +72,12 @@ def objective(trial):
             acc_val_audio, f1_val_audio, _, _ = report_acc_mlp(
                 output_val_audio, torch.Tensor(audio_labels_val).to(DEVICE))
 
-        trial.report(f1_val_audio, epoch)
+        trial.report(acc_val_audio, epoch)
+    # Handle pruning based on the intermediate value.
+    if trial.should_prune():
+        raise optuna.exceptions.TrialPruned()
 
-        # Handle pruning based on the intermediate value.
-        if trial.should_prune():
-            raise optuna.exceptions.TrialPruned()
-
-    return f1_val_audio
+    return acc_val_audio
 
 
 if __name__ == "__main__":
