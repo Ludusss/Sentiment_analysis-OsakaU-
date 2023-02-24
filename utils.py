@@ -74,7 +74,7 @@ def process_ESD_features(quad_class=False, k=0):
     df_features = pd.DataFrame(columns=columns)
     df_features_test = pd.DataFrame(columns=columns)
 
-    feature_dir = "./extracted_data/ESD/male_features/"
+    feature_dir = "./extracted_data/ESD/all_features/"
     features_files = os.listdir(feature_dir)
     for i, features_file in enumerate(features_files):
         if i == k:
@@ -82,7 +82,7 @@ def process_ESD_features(quad_class=False, k=0):
         else:
             df_features = pd.concat([df_features, pd.read_csv(feature_dir + features_file)])
 
-    #audio_features = pd.read_csv("extracted_data/ESD/ESD_audio_features_combined.csv")
+    audio_features = pd.read_csv("extracted_data/ESD/ESD_audio_features_combined.csv")
     audio_features = df_features
     audio_features_test = df_features_test
     """labels = []
@@ -272,8 +272,8 @@ def process_features(quad_class=False):
                     'xxx': 9,
                     'oth': 9}"""
 
-    text_features_df = pd.read_csv("extracted_data/text_features.csv")
-    audio_features_df = pd.read_csv("extracted_data/audio_features.csv")
+    text_features_df = pd.read_csv("./extracted_data/text_features.csv")
+    audio_features_df = pd.read_csv("./extracted_data/audio_features.csv")
 
     # Remove unused labels 4 classes
     if quad_class:
@@ -307,6 +307,8 @@ def process_features(quad_class=False):
         audio_features_df['label'] = audio_features_df['label'].replace([3, 4, 5, 2, 6, 7],
                                                                         [0, 0, 0, 1, 1, 2])
 
+    cond = text_features_df['utterance_id'].isin(audio_features_df['utterance_id']) != True
+    text_features_df.drop(text_features_df[cond].index, inplace=True)
     # Get max sequence length
     batch = 0
     prev_batch = "Ses01F_impro01"
@@ -382,6 +384,7 @@ def process_features(quad_class=False):
         cqt = [elem.replace("\n", "")[1:-1] for elem in audio_features_df[prev_idx:seq_len+prev_idx]["cqt"].values]
         cleaned_features = np.hstack((f0.reshape(seq_len, 1), [np.fromstring(feature, sep=" ") for feature in mfcc],
                                           [np.fromstring(feature, sep=" ") for feature in cqt])).tolist()
+        cleaned_features = preprocessing.StandardScaler().fit_transform(cleaned_features).tolist()
         audio = np.stack(cleaned_features + pad, axis=0)
         audio_features.append(audio)
 
@@ -391,14 +394,12 @@ def process_features(quad_class=False):
         prev_idx = prev_idx + seq_len
 
     # Split text features into train/test
-    rand_batches = np.random.permutation(len(text_features))
-    text_features_train, text_labels_train, text_mask_train = np.array(text_features)[rand_batches[:120]], np.array(text_labels)[rand_batches[:120]], np.array(text_mask)[rand_batches[:120]]
-    text_features_test, text_labels_test, text_mask_test = np.array(text_features)[rand_batches[120:151]], np.array(text_labels)[rand_batches[120:151]], np.array(text_mask)[rand_batches[120:151]]
+    text_features_train, text_labels_train, text_mask_train = np.array(text_features)[:120], np.array(text_labels)[:120], np.array(text_mask)[:120]
+    text_features_test, text_labels_test, text_mask_test = np.array(text_features)[120:151], np.array(text_labels)[120:151], np.array(text_mask)[120:151]
 
     # Split audio features into train/test
-    rand_batches = np.random.permutation(len(audio_features))
-    audio_features_train, audio_labels_train, audio_mask_train = np.array(audio_features)[rand_batches[:120]], np.array(audio_labels)[rand_batches[:120]], np.array(audio_mask)[rand_batches[:120]]
-    audio_features_test, audio_labels_test, audio_mask_test = np.array(audio_features)[rand_batches[120:151]], np.array(audio_labels)[rand_batches[120:151]], np.array(audio_mask)[rand_batches[120:151]]
+    audio_features_train, audio_labels_train, audio_mask_train = np.array(audio_features)[:120], np.array(audio_labels)[:120], np.array(audio_mask)[:120]
+    audio_features_test, audio_labels_test, audio_mask_test = np.array(audio_features)[120:151], np.array(audio_labels)[120:151], np.array(audio_mask)[120:151]
 
     return text_features_train, text_labels_train, text_mask_train, text_features_test, text_labels_test, text_mask_test, audio_features_train, audio_labels_train, audio_mask_train, audio_features_test, audio_labels_test, audio_mask_test, text_features, audio_features
 
@@ -509,7 +510,7 @@ def get_extracted_data():
 
 
 def get_iemocap_data():
-    f = open("pre_extracted_features/IEMOCAP_features_raw.pkl", "rb")
+    f = open("./data/IEMOCAP_features_raw.pkl", "rb")
     if sys.version_info[0] == 2:
         videoIDs, videoSpeakers, videoLabels, videoText, videoAudio, videoVisual, videoSentence, trainVid, testVid = pickle.load(f)
     else:

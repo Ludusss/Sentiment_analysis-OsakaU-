@@ -135,7 +135,7 @@ def get_sentiment_upload():
         audio_input = np.divide(np.subtract(audio_input, mean_arr), variance_arr).reshape(1, -1)
         print(audio_input)
         print(model_audio(torch.Tensor(audio_input)))
-        output = torch.softmax(model_audio(torch.Tensor(audio_input)), dim=1)
+        output = torch.(model_audio(torch.Tensor(audio_input)), dim=1)
         output_label = torch.argmax(output[0])
         return [output_label_text, get_audio_emotion_3(output_label.item())], sentence
     else:

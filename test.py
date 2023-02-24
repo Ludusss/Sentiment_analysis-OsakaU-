@@ -13,8 +13,6 @@ import numpy as np
 
 def main():
     parser = argparse.ArgumentParser(description='IEMOCAP Sentiment Analysis')
-    parser.add_argument('--use_esd', type=bool, default=True,
-                        help='Use esd dataset (default: True')
     parser.add_argument('--use_text_mlp', type=bool, default=True,
                         help='Use mlp for text (default: True')
     parser.add_argument('--use_audio_mlp', type=bool, default=True,
@@ -58,14 +56,10 @@ def main():
     if args.use_pre_extracted:
         print("Uses pre-extracted features")
         data_train, data_test, train_text, train_audio, test_text, test_audio, train_label, test_label, train_seq_len, test_seq_len, train_mask, test_mask = get_extracted_data()
-        if args.use_esd:
-            audio_train, audio_test, audio_val, audio_labels_train, audio_labels_test, audio_labels_val = process_ESD_features(args.use_quad_classes)
     else:
         print("Uses own features")
         #text_features_train, text_labels_train, text_mask_train, text_features_test, text_labels_test, text_mask_test, audio_features_train, audio_labels_train, audio_mask_train, audio_features_test, audio_labels_test, audio_mask_test, _, _ = process_features(args.use_quad_classes)
-        text_train, text_labels_train, text_test, text_labels_test, text_val, text_labels_val = process_twitter()
-        if args.use_esd:
-            audio_train, audio_test, audio_val, audio_labels_train, audio_labels_test, audio_labels_val = process_ESD_features(args.use_quad_classes)
+        text_train, text_labels_train, text_test, text_labels_test, text_val, text_labels_val = process_features()
 
     # Initialize Tensors for test and val set
     text_target_test = torch.Tensor(text_labels_test).to(device)

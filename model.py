@@ -3,6 +3,23 @@ import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 
+def get_device():
+    if torch.cuda.is_available():
+        return "cuda"
+    else:
+        return "cpu"
+
+class LoadableModule(torch.nn.Module):
+    def load(self, model_path):
+        try:
+            super(LoadableModule, self).load_state_dict()
+        except:
+            print("Failed to load model from {} without device mapping. Trying to load with mapping to {}".format(
+                model_path, get_device()))
+            super(LoadableModule, self).load_state_dict(torch.load(model_path, map_location=get_device()))
+
+    def forward(self, input):
+        raise Exception("Not implemented!")
 
 class MLP_2(nn.Module):
     def __init__(self, input_feature_size, hidden_size, fc_dim, n_classes, n_layers, device):
@@ -55,6 +72,62 @@ class MLP(nn.Module):
 
         return out
 
+class AttentionLSTM(LoadableModule):
+    """Taken from https://github.com/prakashpandey9/Text-Classification-Pytorch/blob/master/models/LSTM_Attn.py"""
+    def __init__(self, cfg):
+        """
+        LSTM with self-Attention model.
+        :param cfg: Linguistic config object
+        """
+        super(AttentionLSTM, self).__init__()
+        self.batch_size = cfg.batch_size
+        self.output_size = cfg.num_classes
+        self.hidden_size = cfg.hidden_dim
+        self.embedding_length = cfg.emb_dim
+
+        self.dropout = torch.nn.Dropout(cfg.dropout)
+        self.dropout2 = torch.nn.Dropout(cfg.dropout2)
+
+        self.lstm = nn.LSTM(self.embedding_length, self.hidden_size, batch_first=True)
+        self.label = nn.Linear(self.hidden_size, self.output_size)
+
+    def attention_net(self, lstm_output, final_state):
+        """
+        This method computes soft alignment scores for each of the hidden_states and the last hidden_state of the LSTM.
+        Tensor Sizes :
+            hidden.shape = (batch_size, hidden_size)
+            attn_weights.shape = (batch_size, num_seq)
+            soft_attn_weights.shape = (batch_size, num_seq)
+            new_hidden_state.shape = (batch_size, hidden_size)
+        :param lstm_output: Final output of the LSTM which contains hidden layer outputs for each sequence.
+        :param final_state: Final time-step hidden state (h_n) of the LSTM
+        :return: Context vector produced by performing weighted sum of all hidden states with attention weights
+        """
+        hidden = final_state.squeeze(0)
+        attn_weights = torch.bmm(lstm_output, hidden.unsqueeze(2)).squeeze(2)
+        soft_attn_weights = F.softmax(attn_weights, 1)
+        new_hidden_state = torch.bmm(lstm_output.transpose(1, 2), soft_attn_weights.unsqueeze(2)).squeeze(2)
+        return new_hidden_state
+
+    def extract(self, input):
+        #input = input.transpose(0, 1)
+        input = self.dropout(input)
+
+        output, (final_hidden_state, final_cell_state) = self.lstm(input)
+        #output = output.permute(1, 0, 2)
+
+        attn_output = self.attention_net(output, final_hidden_state)
+        return attn_output
+
+    def classify(self, attn_output):
+        attn_output = self.dropout2(attn_output)
+        logits = self.label(attn_output)
+        return logits.squeeze(1)
+
+    def forward(self, input):
+        attn_output = self.extract(input)
+        logits = self.classify(attn_output)
+        return logits
 
 class LSTM(nn.Module):
     def __init__(self, input_feature_size, hidden_size, n_classes, fc_dim, n_layers, device):

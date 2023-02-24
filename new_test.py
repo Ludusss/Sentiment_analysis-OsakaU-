@@ -17,7 +17,7 @@ from ray.tune.schedulers import ASHAScheduler
 
 def main():
     parser = argparse.ArgumentParser(description='Speech Sentiment Analysis')
-    parser.add_argument('--use_quad_classes', type=bool, default=False,
+    parser.add_argument('--use_quad_classes', type=bool, default=True,
                         help='Use 4 class classifier (default: True')
     parser.add_argument('--alpha', type=float, default=0.05,
                         help='initial learning rate (default: 0.01)')
@@ -50,7 +50,7 @@ def main():
     parser.add_argument('--save_model_threshold_audio', type=float, default=100,
                         help='threshold for saving audio model (default: 86)')
 
-    parser.add_argument('--use_pretrained', type=bool, default=True,
+    parser.add_argument('--use_pretrained', type=bool, default=False,
                         help='Use pretrained model (default: False)')
     parser.add_argument('--use_pretrained_text', type=bool, default=True,
                         help='Use pretrained text model (default: False)')
@@ -66,10 +66,13 @@ def main():
     #text_train, text_labels_train, text_test, text_labels_test, text_val, text_labels_val = process_twitter()   # Text data
     f1_10_cross = []
     acc_10_cross = []
+    val_f1_10_cross = []
+    val_acc_10_cross = []
 
-    for i in range(5):
+    for i in range(10):
         print("k-fold iter: " + str(i+1))
         audio_train, audio_labels_train, audio_test, audio_labels_test, audio_val, audio_labels_val = process_ESD_features(args.use_quad_classes, i)   # Audio data
+
 
         # Initialize Tensors for train, val and test sets
         """text_target_train = torch.Tensor(text_labels_train).to(device)
@@ -221,6 +224,9 @@ def main():
 
                 best_epoch_audio = 0
                 best_acc_audio = 0
+                best_f1_audio_val = 0
+                best_acc_audio_test = 0
+                best_f1_audio_test = 0
 
                 # variables for plotting
                 train_acc_epoch = [0]
@@ -276,6 +282,8 @@ def main():
                         print(f"Accuracy (evaluation): {acc_val_audio} (audio_model)", end=" ")
                         print(f"Accuracy (test): {acc_test_audio} (audio_model)")
 
+                    if f1_val_audio > best_f1_audio_val:
+                        best_f1_audio_val = f1_val_audio
                     if acc_val_audio > best_acc_audio:
                         best_acc_audio = acc_val_audio
                         best_epoch_audio = epoch
@@ -287,7 +295,7 @@ def main():
                                     'model_state_dict': model_audio.state_dict(),
                                     'optimizer_state_dict': optimizer.state_dict()
                                 },
-                                    "saved_models/audio_mlp/ESD/" + "4_model_ESD_acc_" + "{:0.2f}".format(best_acc_audio) + ".a")
+                                    "saved_models/audio_mlp/ESD/" + "4_model_ESD_acc_" + "{:0.2f}".format(best_acc_audio) + "k=" + str(i) + ".a")
                             else:
                                 torch.save({
                                     'best_epoch': best_epoch_audio,
@@ -295,12 +303,18 @@ def main():
                                     'optimizer_state_dict': optimizer.state_dict()
                                 },
                                     "saved_models/audio_mlp/ESD/" + "3_model_ESD_acc_" + "{:0.2f}".format(best_acc_audio) + ".a")
-
+                    if f1_test_audio > best_f1_audio_test:
+                        best_f1_audio_test = f1_test_audio
+                    if acc_test_audio > best_acc_audio_test:
+                        best_acc_audio_test = acc_test_audio
                 output_test_audio = model_audio(torch.Tensor(audio_test).to(device))
                 acc_test_audio, f1_test_audio, conf_matrix_audio_test, classify_report_audio_test = report_acc_mlp(
                     output_test_audio, audio_target_test)
-                f1_10_cross.append(f1_test_audio)
-                acc_10_cross.append(acc_test_audio)
+
+                f1_10_cross.append(best_f1_audio_test)
+                acc_10_cross.append(best_acc_audio_test)
+                val_f1_10_cross.append(best_f1_audio_val)
+                val_acc_10_cross.append(best_acc_audio)
                 print("Audio model:")
                 print('Best Epoch: {}/{}.............'.format(best_epoch_audio, args.n_epochs_audio), end=" ")
                 print("Train accuracy: {:.2f}% Evaluation accuracy: {:.2f}% Test accuracy: {:.2f}%".format(train_acc,
@@ -371,16 +385,21 @@ def main():
             model_audio.eval()
             with torch.no_grad():
                 output_test = model_audio(torch.Tensor(np.array(audio_test)).to(device))
+                output_val = model_audio(torch.Tensor(np.array(audio_val)).to(device))
                 acc_test, f1_test, conf_matrix, classify_report = report_acc_mlp(output_test, torch.Tensor(audio_target_test))
+                val_acc_test, val_f1_test, val_conf_matrix, val_classify_report = report_acc_mlp(output_val, torch.Tensor(audio_target_val))
                 f1_10_cross.append(f1_test)
                 acc_10_cross.append(acc_test)
+                val_f1_10_cross.append(val_f1_test)
+                val_acc_10_cross.append(val_acc_test)
 
                 print("Accuracy of audio model loaded: {:.2f}%".format(acc_test))
                 print(classify_report)
 
-    print("10-fold cross validation (f1): " + str(np.mean(f1_10_cross)))
-    print("10-fold cross validation (acc): " + str(np.mean(acc_10_cross)))
-
+    print("(test) 10-fold cross validation (f1):" + str(np.mean(f1_10_cross)))
+    print("(test) 10-fold cross validation (acc):" + str(np.mean(acc_10_cross)))
+    print("(val) 10-fold cross validation (f1): " + str(np.mean(val_f1_10_cross)))
+    print("(val) 10-fold cross validation (acc): " + str(np.mean(val_acc_10_cross)))
 
 if __name__ == '__main__':
     print("Starting")

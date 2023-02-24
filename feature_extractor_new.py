@@ -189,30 +189,30 @@ def extract_text_features(iemocap_info_df):
         if os.path.isfile("C:/Projects/Sentiment_analysis-OsakaU-/extracted_data/text_features.csv"):
             print("Loaded text features")
             return pd.read_csv("C:/Projects/Sentiment_analysis-OsakaU-/extracted_data/text_features.csv")
+    useful_regex = re.compile(r'^(\w+)', re.IGNORECASE)
+    columns = ['utterance_id', 'label', 'text', 'b_features']
+    df_features = pd.DataFrame(columns=columns)
+    model = SentenceTransformer('all-mpnet-base-v2')  # Load s-bert model for text feature extractions
+    for sess in tqdm(range(1, 6)):
+        transcripts_path = 'raw_data/IEMOCAP_full_release/Session{}/dialog/transcriptions/'.format(sess)
+        transcript_files = os.listdir(transcripts_path)
+        for f in tqdm(transcript_files):
+            with open('{}{}'.format(transcripts_path, f), 'r') as f:
+                all_lines = f.readlines()
+            for l in all_lines:
+                l = l.strip()
+                transcript_code = useful_regex.match(l).group()
+                row_info = iemocap_info_df.loc[iemocap_info_df['utterance_id'] == transcript_code]
 
-        useful_regex = re.compile(r'^(\w+)', re.IGNORECASE)
-        columns = ['utterance_id', 'label', 'text', 'b_features']
-        df_features = pd.DataFrame(columns=columns)
-        model = SentenceTransformer('all-mpnet-base-v2')  # Load s-bert model for text feature extractions
-        for sess in tqdm(range(1, 6)):
-            transcripts_path = 'raw_data/IEMOCAP_full_release/Session{}/dialog/transcriptions/'.format(sess)
-            transcript_files = os.listdir(transcripts_path)
-            for f in tqdm(transcript_files):
-                with open('{}{}'.format(transcripts_path, f), 'r') as f:
-                    all_lines = f.readlines()
-                for l in all_lines:
-                    transcript_code = useful_regex.match(l).group()
-                    row_info = iemocap_info_df.loc[iemocap_info_df['utterance_id'] == transcript_code]
+                if not row_info.empty:
+                    transcription = l.split(':')[-1].strip()
+                    new_row = pd.Series({columns[0]: transcript_code,  columns[1]: row_info.loc[row_info.index[0], "emotion"],
+                                         columns[2]: transcription, columns[3]: model.encode(transcription)})
+                    df_features = pd.concat([df_features, new_row.to_frame().T], ignore_index=True)
 
-                    if not row_info.empty:
-                        transcription = l.split(':')[-1].strip()
-                        new_row = pd.Series({columns[0]: transcript_code,  columns[1]: row_info.loc[row_info.index[0], "emotion"],
-                                             columns[2]: transcription, columns[3]: model.encode(transcription)})
-                        df_features = pd.concat([df_features, new_row.to_frame().T], ignore_index=True)
+    df_features.to_csv('extracted_data/text_features.csv', index=False)
 
-        df_features.to_csv('extracted_data/text_features.csv', index=False)
-
-        return df_features
+    return df_features
 
 def extract_ESD_audio_features():
     emo_dict = {
@@ -227,6 +227,7 @@ def extract_ESD_audio_features():
     start_sess = 11
 
     if platform == "darwin":
+        print("hej")
         if os.path.isfile("/extracted_data/ESD/male_features/ESD_audio_features_11.csv"):
             print("Loaded ESD audio features")
             df_features = pd.read_csv("extracted_data/ESD/ESD_audio_features_combined.csv")
@@ -352,12 +353,13 @@ def main():
     build_audio_vector(iemocap_df)
     audio_features = extract_audio_features(iemocap_df)
     text_features = extract_text_features(iemocap_df)
-    esd_audio_features = extract_ESD_audio_features()
-    twitter_features = extract_twitter_text_features()
+    #esd_audio_features = extract_ESD_audio_features()
+    #twitter_features = extract_twitter_text_features()
     print("Audio features:\n" + str(audio_features.head()))
     print("Text features:\n" + str(text_features.head()))
-    print("ESD audio features:\n" + str(esd_audio_features.head()))
-    print("Twitter text features:\n" + str(twitter_features.head()))
+    #print("ESD audio features:\n" + str(esd_audio_features.head()))
+    #print("Twitter text features:\n" + str(twitter_features.head()))
+    time.sleep(1000)
 
 
 if __name__ == '__main__':
