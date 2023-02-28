@@ -20,7 +20,7 @@ def main():
     parser = argparse.ArgumentParser(description='IEMOCAP Emotion Analysis')
 
     # Modal selection
-    parser.add_argument('--model', type=str, default='text',
+    parser.add_argument('--model', type=str, default='audio',
                         help='choose the modal to work with audio/visual/text/fusion (default: audio)')
 
     # Model Param
@@ -50,9 +50,9 @@ def main():
     # Testing
     parser.add_argument('--load_dict', type=bool, default=False,
                         help='Load a pretrained state_dict (default: False)')
-    parser.add_argument('--test_mode', type=bool, default=False,
+    parser.add_argument('--test_mode', type=bool, default=True,
                         help='test_mode, plot confusion matrix (default: False)')
-    parser.add_argument('--audio_dict', type=str, default="state_dict/audioRNN/audioRNN57.12.pt",
+    parser.add_argument('--audio_dict', type=str, default="state_dict/audioRNN/audioRNN50.19.pt",
                         help='audio pretrained stat dict (default: 57.12)')
     parser.add_argument('--visual_dict', type=str, default="state_dict/visualRNN/visualRNN56.01.pt",
                         help='visual pretrained stat dict (default: 56.01)')
@@ -120,9 +120,10 @@ def main():
             correct_tst = 0
             output_tst, _ = model(input_test)
             output_tst = output_tst.to(device)
-            accuracy_tst = cal_acc(output_tst, target_test, test_mask)
+            accuracy_tst, _ = cal_acc(output_tst, target_test, test_mask)
             precision, recall,f1,  wa , wf1= cal_metrics(output_tst, target_test, test_mask)
             cm = report_acc(output_tst, target_test, test_mask)
+            time.sleep(100)
             cm = cm.astype('float')
             tt=cm.sum(axis=1)[:, np.newaxis]
             cm = cm/tt *100

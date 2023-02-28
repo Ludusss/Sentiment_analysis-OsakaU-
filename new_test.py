@@ -371,7 +371,7 @@ def main():
                     print(classify_report)
             else:"""
             if args.use_quad_classes:
-                audio_model_info = torch.load("saved_models/audio_mlp/ESD/4_model_ESD_acc_86.11.a")
+                audio_model_info = torch.load("./saved_models/audio_mlp/ESD/4/4_model_ESD_acc_80.06k=0.a")
             else:
                 audio_model_info = torch.load("saved_models/audio_mlp/ESD/3_model_ESD_acc_86.41.a")
             model_audio.load_state_dict(audio_model_info['model_state_dict'])

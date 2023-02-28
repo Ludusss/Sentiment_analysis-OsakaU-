@@ -1,10 +1,10 @@
 import sys
 import time
 
-from luo.utils import report_acc, cal_acc, cal_acc_without_mask
+from mman.utils import report_acc, cal_acc, cal_acc_without_mask
 
-sys.path.append('/Users/ludus/Projects/Sentiment_analysis-OsakaU-/luo')
-from luo.model import LstmModel, hir_fullModel
+sys.path.append('/mman')
+from mman.model import LstmModel, hir_fullModel
 from model import MLP
 from utils import process_features, get_iemocap_data, report_acc_mlp
 import numpy as np
@@ -13,16 +13,17 @@ import os
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-#_, _, _, _, _, _, _, _, _, audio_features_test, audio_labels_test, audio_mask_test, _, _ = process_features(True)
 _, _, _, text_test, text_test_label, text_test_mask, _, _, _, audio_test, audio_test_label, audio_mask_test, _, _ = process_features(True)
+#_, _, _, _, _, _, data_train, train_label, train_mask, data_test, test_label, test_mask, _, _, seqlen_train, seqlen_test, _, _ = process_features(True)
 text_test_mask = text_test_mask.reshape(3286)
+#test_mask = test_mask.reshape(3286)
 #model = LstmModel(input_feat_size=33, output_size=4, hidden_dim=300, fc_dim=200, dropout=0.5)
 model = hir_fullModel(batch_size = 10, mode = False, classifier = "lstm", output_size = 4, hidden_dim = 300, fc_dim = 200 , dropout = 0.5, n_layers=2)
 esd_model = MLP(input_feature_size=33, hidden_size=118, n_classes=4,
                               n_layers=1, device=device, p=0.2554070776341251)
-#model.load_state_dict(torch.load("./luo/state_dict/audioRNN/audioRNN50.19.pt", map_location=device))
-#model.load_state_dict(torch.load("./luo/state_dict/bl_hira/bl_hira73.07.pt", map_location=device));
-model.load_state_dict(torch.load("./luo/state_dict/full/full73.14.pt", map_location=device));
+#model.load_state_dict(torch.load("./mman/state_dict/audioRNN/audioRNN50.19.pt", map_location=device))
+#model.load_state_dict(torch.load("./mman/state_dict/bl_hira/bl_hira73.07.pt", map_location=device));
+model.load_state_dict(torch.load("./mman/state_dict/full/full73.14.pt", map_location=device));
 
 dir = "./saved_models/audio_mlp/ESD/4"
 esd_models = os.listdir(dir)
@@ -36,13 +37,15 @@ for model_text in esd_models:
     model.eval()
     esd_model.eval()
     with torch.no_grad():
-        #input_data = torch.Tensor(np.array(audio_test))
+        #input_data = torch.Tensor(np.array(data_test))
         input_data_audio = torch.Tensor(audio_test)
         input_data_text = torch.Tensor(text_test)
         #output, _ = model(input_data)
         output, _ = model(input_data_audio, input_data_text)
         output = torch.softmax(output, dim=1)
         acc, misclassified_samples = cal_acc(output, text_test_label, text_test_mask)
+        #report_acc(output, text_test_label, text_test_mask)
+        #time.sleep(100)
         print("Accuracy of baseline: " + str(acc))
 
         input_data_esd = torch.Tensor(np.reshape(audio_test, (3286, 33)))

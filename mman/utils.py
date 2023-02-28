@@ -82,8 +82,8 @@ def cal_metrics(output, target, mask):
 
 def report_acc(output, target, mask):
     pred = output.argmax(dim=1, keepdim=True)
-    pred = pred.cpu().numpy()
-    target = target.cpu().numpy()
+    #pred = pred.cpu().numpy()
+    #target = target.cpu().numpy()
     pred = np.extract(mask, pred)
     target = np.extract(mask, target)
     cm = metrics.confusion_matrix(target, pred)
@@ -149,8 +149,8 @@ def process_features(quad_class=False):
                     'xxx': 9,
                     'oth': 9}"""
 
-    text_features_df = pd.read_csv("../extracted_data/text_features.csv")
-    audio_features_df = pd.read_csv("../extracted_data/audio_features.csv")
+    text_features_df = pd.read_csv("extracted_data/text_features.csv")
+    audio_features_df = pd.read_csv("extracted_data/audio_features.csv")
 
     # Remove unused labels 4 classes
     if quad_class:

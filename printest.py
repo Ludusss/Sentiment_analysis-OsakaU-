@@ -27,11 +27,11 @@ def print_plot_play(x, Fs, text=''):
 
 
 # Read wav
-fn_wav = os.path.join('./recordings/', 'test.webm')
+fn_wav = os.path.join('./online_audio/', 'fine_neutral.wav')
 x, Fs = librosa.load(fn_wav, sr=22050)
 print_plot_play(x=x, Fs=Fs, text='WAV file: ')
 
-fn_wav = os.path.join('./online_audio/', 'forest_positive.wav')
+fn_wav = os.path.join('./online_audio/', 'fine_negative.wav')
 x, Fs = librosa.load(fn_wav, sr=22050)
 print_plot_play(x=x, Fs=Fs, text='WAV file: ')
 
